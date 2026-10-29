@@ -1,6 +1,6 @@
 # 設定・実行の詳細（対策版）
 
-初回導入は [Windows導入ガイド](INSTALL_WINDOWS.md)、確認状況は [STATUS.md](STATUS.md) を参照してください。以下は `chapter4` で実行します。標準環境はWindows x64 / Python 3.14.10以上の3.14系 / OpenSSL 3.5.9以上 / `.venv-secure` です。
+初回導入は [Windows導入ガイド](INSTALL_WINDOWS.md)、確認状況は [STATUS.md](STATUS.md) を参照してください。以下は `chapter4` で実行します。標準環境はWindows x64 / Python 3.14.10以上の3.14系 / OpenSSL 3.5.9以上 / `.venv` です。
 
 ## 仕組みとモデル
 
@@ -35,12 +35,12 @@ Embeddingの文書・URL・モデル・プレフィックスを変えたら検�
 ## CLI
 
 ```powershell
-.\.venv-secure\Scripts\python.exe -m workshop models
-.\.venv-secure\Scripts\python.exe -m workshop status
-.\.venv-secure\Scripts\python.exe -m workshop index
-.\.venv-secure\Scripts\python.exe -m workshop preflight
-.\.venv-secure\Scripts\python.exe -m workshop run "過去のQAを参照して、二段階認証で認証アプリを使う設定手順を教えてください。"
-.\.venv-secure\Scripts\python.exe -m workshop search "二段階認証 認証アプリ"
+.\.venv\Scripts\python.exe -m workshop models
+.\.venv\Scripts\python.exe -m workshop status
+.\.venv\Scripts\python.exe -m workshop index
+.\.venv\Scripts\python.exe -m workshop preflight
+.\.venv\Scripts\python.exe -m workshop run "過去のQAを参照して、二段階認証で認証アプリを使う設定手順を教えてください。"
+.\.venv\Scripts\python.exe -m workshop search "二段階認証 認証アプリ"
 ```
 
 `preflight` は接続・ネイティブツール・構造化出力を計3リクエストで確認します。`status` は生成APIを呼びません。終了コードは0が通過、2がモデル評価未完了または機能確認の一部失敗、1が設定・通信・形式等のエラーです。
@@ -62,8 +62,8 @@ OpenRouterは `:free` の固定IDと価格上限0を送信します。リクエ�
 ## テストと配布
 
 ```powershell
-.\.venv-secure\Scripts\python.exe -m unittest discover -s workshop -p "test_*.py"
-.\.venv-secure\Scripts\python.exe -m workshop.package
+.\.venv\Scripts\python.exe -m unittest discover -s workshop -p "test_*.py"
+.\.venv\Scripts\python.exe -m workshop.package
 ```
 
 外部生成APIを使わないテスト36件を通過しています。配布スクリプトは明示したコード・資料・設定例・確認記録だけを収録します。現在のAPIキー、`.env`、個人ログ、キャッシュ、実行環境は含めません。[監査結果](SECURITY_AUDIT.md)の確認範囲も参照してください。

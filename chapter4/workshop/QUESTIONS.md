@@ -9,7 +9,7 @@
 期待する内容は、設定画面で二段階認証を選び、認証アプリを選択し、QRコードを読み取り、生成されたコードを入力して有効化する手順です。根拠は `XYZ_system_QA.csv row 6` です。
 
 ```powershell
-.\.venv-secure\Scripts\python.exe -m workshop run "過去のQAを参照して、二段階認証で認証アプリを使う設定手順を教えてください。"
+.\.venv\Scripts\python.exe -m workshop run "過去のQAを参照して、二段階認証で認証アプリを使う設定手順を教えてください。"
 ```
 
 計画のサブタスク、選択した検索ツール、検索語、実際の出典、評価の `is_completed` を見比べます。引用とCSVの内容を照合してください。
@@ -21,14 +21,14 @@
 期待する内容は「現在の仕様ではプロジェクト単位で絞る機能はなく、通知の優先度を設定できる」です。根拠は `XYZ_system_QA.csv row 4` です。未実装の機能を「設定できる」と答えていないか確認します。
 
 ```powershell
-.\.venv-secure\Scripts\python.exe -m workshop run "過去のQAを参照して、通知を特定のプロジェクトだけに絞れますか。代わりの対処方法も教えてください。"
+.\.venv\Scripts\python.exe -m workshop run "過去のQAを参照して、通知を特定のプロジェクトだけに絞れますか。代わりの対処方法も教えてください。"
 ```
 
 ## 検索語だけ変えて比べる
 
 ```powershell
-.\.venv-secure\Scripts\python.exe -m workshop search "二段階認証 認証アプリ"
-.\.venv-secure\Scripts\python.exe -m workshop search "二要素認証 ワンタイムパスワード"
+.\.venv\Scripts\python.exe -m workshop search "二段階認証 認証アプリ"
+.\.venv\Scripts\python.exe -m workshop search "二要素認証 ワンタイムパスワード"
 ```
 
 TF-IDF選択時は文字の一致を使い、APIは不要です。意味が近くても違う言葉では順位が変わります。LM Studio Embedding選択時は検索語のベクトル化にローカルAPIを使います。同じ質問で2方式の検索結果を比較できます。

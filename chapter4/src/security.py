@@ -21,7 +21,7 @@ MAX_TOOL_CALLS = 2
 
 def ensure_runtime():
     if not (3, 14, 10) <= sys.version_info[:3] < (3, 15, 0):
-        raise RuntimeError("対策版はPython 3.14.10以上の3.14系で起動してください。導入ガイドに従って.venv-secureを作成してください。")
+        raise RuntimeError("対策版はPython 3.14.10以上の3.14系で起動してください。導入ガイドに従って仮想環境を作り直してください。名前は.venvやvenvで構いません。")
     if ssl.OPENSSL_VERSION_INFO < (3, 5, 0, 9, 0):
         raise RuntimeError("OpenSSLのセキュリティ更新を含むPython配布物が必要です")
 

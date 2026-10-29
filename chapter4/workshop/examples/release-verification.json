@@ -75,5 +75,11 @@
       "content_saved": true
     },
     "code_guide": "workshop/CODE_GUIDE.md"
-  }
+  },
+  "launcher_environments": [
+    ".venv",
+    "venv",
+    ".venv-secure"
+  ],
+  "launcher_check": "passed: incompatible .venv skipped; compatible .venv-secure selected"
 }

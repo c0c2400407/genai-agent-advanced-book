@@ -6,14 +6,16 @@ Windows x64、RAM 16GB程度を想定しています。GPUとDockerは必須で�
 
 [Python公式の3.14.10リリース](https://www.python.org/downloads/release/python-31410/)からWindows installer (64-bit)を入れ、Tcl/Tkを含めます。3.14.10以上の3.14系、同梱OpenSSL 3.5.9以上を使用してください。以前のPython・仮想環境は流用しません。アプリは古い実行環境を検出すると停止します。
 
+仮想環境の名前は任意です。この手順は一般的な `.venv` を使います。すでに同名の古い環境がある場合は、別フォルダーへ新しくZIPを展開して準備してください。
+
 ZIPをユーザーが書き込めるフォルダーに展開します。展開後の `chapter4` フォルダーで、エクスプローラーのアドレス欄に `powershell` と入力して開きます。
 
 ```powershell
 py -3.14 --version
-py -3.14 -m venv .venv-secure
-.\.venv-secure\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv-secure\Scripts\python.exe -m pip check
-.\.venv-secure\Scripts\python.exe -c "import sys,ssl; print(sys.version); print(ssl.OPENSSL_VERSION)"
+py -3.14 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip check
+.\.venv\Scripts\python.exe -c "import sys,ssl; print(sys.version); print(ssl.OPENSSL_VERSION)"
 ```
 
 `pip check` が `No broken requirements found.` と表示されれば依存関係の整合は通過です。仮想環境の有効化やPowerShellの実行ポリシー変更は不要です。requirementsはバージョン・ハッシュ・wheel形式を固定しています。ハッシュ不一致を無視するオプションは使わず、配布元のファイルを確認してください。
@@ -28,10 +30,10 @@ Embedding検索を使う場合は、検索用のEmbeddingモデルも1つロー�
 
 ```powershell
 Copy-Item .env.lmstudio.example .env
-.\.venv-secure\Scripts\python.exe -m workshop gui
+.\.venv\Scripts\python.exe -m workshop gui
 ```
 
-次回からは `start-gui.cmd` のダブルクリックで起動できます。起動時と「モデル一覧を更新」でLM Studioのモデル一覧を取得します。未ロードのものも一覧に出るため、実行するモデルへLM Studio側で切り替えてください。API URLの標準値は `http://localhost:1234/v1`、ローカルのキー欄は `lm-studio` です。
+次回からは `start-gui.cmd` のダブルクリックで起動できます。ランチャーは `.venv` → `venv` → `.venv-secure` の順に、必要なPython・ライブラリ・Tkinterを使える環境を探します。古いPythonの環境は飛ばします。名前自体を安全性の条件にはしていません。別の名前を使う場合は、その環境のPythonで `-m workshop gui` を実行してください。起動時と「モデル一覧を更新」でLM Studioのモデル一覧を取得します。未ロードのものも一覧に出るため、実行するモデルへLM Studio側で切り替えてください。API URLの標準値は `http://localhost:1234/v1`、ローカルのキー欄は `lm-studio` です。
 
 1. 呼び出す言語モデルと検索方式を選ぶ。Embedding方式ならEmbeddingモデルも選ぶ。
 2. 「検索データを準備」を押す。初回のEmbedding生成には時間がかかる。
@@ -49,7 +51,7 @@ GUIの入力は `.env` に保存しません。次回の初期値を変更した
 | 症状 | 対処 |
 |---|---|
 | `py` がない、3.14が見つからない | Python公式インストーラーを確認。Python本体の絶対パスでもvenvを作成できる |
-| 古いPython／OpenSSLで停止 | 更新したPythonで `.venv-secure` を新規作成。古い `.venv` は使わない |
+| 古いPython／OpenSSLで停止 | 古い仮想環境を別名で保管してから、更新したPythonで新規作成する |
 | `No module named tkinter` | PythonのTcl/Tkコンポーネントを追加する |
 | モデル一覧が空・通信失敗 | LM Studioのサーバー起動とポートを確認し、一覧を更新する |
 | 選んだモデルが未ロード | LM Studioでそのモデルをロードして再度一覧を更新する |
