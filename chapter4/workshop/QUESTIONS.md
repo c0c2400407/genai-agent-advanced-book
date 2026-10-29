@@ -2,6 +2,8 @@
 
 実行時のモデルや混雑で回答は変わります。動作確認の実測と使用モデルは [STATUS.md](STATUS.md) を参照してください。
 
+OpenRouterでも `nvidia/nemotron-3.5-super-vl:free` / native / schema / TF-IDF / サブタスク上限1で、下記の基本質問に成功しています。[成功ログ](examples/openrouter-success.json)
+
 ## 基本の質問
 
 > 過去のQAを参照して、二段階認証で認証アプリを使う設定手順を教えてください。

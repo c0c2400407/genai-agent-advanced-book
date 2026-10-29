@@ -69,6 +69,8 @@ chapter4/workshop/test-results.log
 chapter4/workshop/examples/*
 !chapter4/workshop/examples/secure-lmstudio-run.json
 !chapter4/workshop/examples/secure-lmstudio-run.log
+!chapter4/workshop/examples/openrouter-success.json
+!chapter4/workshop/examples/openrouter-success.log
 !chapter4/workshop/examples/security-audit.json
 !chapter4/workshop/examples/release-verification.json
 .DS_Store

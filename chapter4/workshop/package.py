@@ -68,6 +68,8 @@ FILES = [
     "workshop/examples/security-audit.json",
     "workshop/examples/secure-lmstudio-run.json",
     "workshop/examples/secure-lmstudio-run.log",
+    "workshop/examples/openrouter-success.json",
+    "workshop/examples/openrouter-success.log",
     "workshop/examples/release-verification.json",
 ]
 

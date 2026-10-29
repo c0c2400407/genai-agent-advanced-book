@@ -4,7 +4,7 @@ LM Studio／OpenRouterに対応したGUI・CLIを用意しています。2026-10
 
 **[Windows導入ガイド](chapter4/workshop/INSTALL_WINDOWS.md) → [第4章README](chapter4/README.md)** の順に確認してください。Python 3.14.10以上の3.14系、専用の `.venv` を使います。古いPythonで作った仮想環境は流用せず、新しく作成してください。セキュリティのためです。
 
-依存46パッケージのOSV照合は既知の該当0件、自動テストは40件通過です。[監査と対策の詳細](chapter4/workshop/SECURITY_AUDIT.md)、[動作確認と未確認事項](chapter4/workshop/STATUS.md)も収録しています。OpenRouterの実接続は未確認です。
+依存46パッケージのOSV照合は既知の該当0件、自動テストは40件通過です。[監査と対策の詳細](chapter4/workshop/SECURITY_AUDIT.md)、[動作確認と未確認事項](chapter4/workshop/STATUS.md)も収録しています。OpenRouterの `nvidia/nemotron-3.5-super-vl:free` で、nativeツール・schema構造化出力・TF-IDF検索による基本質問の実行に成功しました（API 5回、26.47秒、評価OK）。
 
 リポジトリ直下のrequirements.txtも対策版のハッシュ固定requirementsを参照します。他章の環境は今回の更新対象ではありません。
 

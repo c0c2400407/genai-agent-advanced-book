@@ -24,6 +24,6 @@ GUI起動後は呼び出す言語モデルと検索方式を選び、「検索�
 
 依存関係は `requirements.txt` → `workshop/requirements.lock.txt` で全件のバージョンとSHA256を固定しています。Windows x64用です。設定例以外の `.env`、APIキー、仮想環境はZIPに含めません。質問・回答・検索結果の本文保存は初期設定で有効です。不要な場合はGUIの保存チェックを外すか `SAVE_FULL_LOGS=false` にします。
 
-OpenRouterは末尾 `:free` の固定モデルIDを指定します。設定例のモデルは候補であり、APIキーを使った実接続・回答品質の確認は今回実施していません。参加者への配布前に別途確認してください。
+OpenRouterは末尾 `:free` の固定モデルIDを指定します。OpenRouterの `nvidia/nemotron-3.5-super-vl:free` で、nativeツール・schema構造化出力・TF-IDF検索による基本質問の実行に成功しました（API 5回、26.47秒、評価OK）。 成功した設定を `.env.openrouter.example` に反映しています。提供状況は開催前にも確認してください。
 
 リポジトリ内に残る元の `src/tools`・`src/scripts`、Docker手順はこの配布版の対象外です。通常の導入は上記pip手順を使います。開発者向け `pyproject.toml`・`uv.lock` も対策後の直接依存に更新しています。

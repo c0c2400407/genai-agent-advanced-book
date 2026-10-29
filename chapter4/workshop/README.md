@@ -57,7 +57,7 @@ LM Studioへの通信はループバックのみ、OpenRouterは公式HTTPSだ�
 
 1回で評価を通れば `2 + 3 × サブタスク数`、再試行上限まで使うと `2 + 3 × サブタスク数 × 試行回数` が目安です。初期2試行なら1タスク5〜8回、2タスク8〜14回です。SDKの自動再試行は無効、GUIとCLIの同時実行もロックします。Embedding生成・検索は別のローカルAPI回数として扱います。
 
-OpenRouterは `:free` の固定IDと価格上限0を送信します。リクエスト間隔は最低3.2秒です。無料モデルの提供状況・利用制限は変わるため、[公式の制限説明](https://openrouter.ai/docs/api/reference/limits)を開催前に確認してください。設定例の候補は実接続未確認です。
+OpenRouterは `:free` の固定IDと価格上限0を送信します。リクエスト間隔は最低3.2秒です。無料モデルの提供状況・利用制限は変わるため、[公式の制限説明](https://openrouter.ai/docs/api/reference/limits)を開催前に確認してください。OpenRouterの `nvidia/nemotron-3.5-super-vl:free` で、nativeツール・schema構造化出力・TF-IDF検索による基本質問の実行に成功しました（API 5回、26.47秒、評価OK）。 設定例は実測に合わせてサブタスク上限1件にしています。
 
 ## テストと配布
 

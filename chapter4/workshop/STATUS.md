@@ -28,7 +28,7 @@ ZIPは明示したコード・書籍データ・設定例・今回の確認記�
 
 ## 残る確認
 
-OpenRouterは固定無料モデルと価格0の送信内容をモックで検証しています。**APIキーを使った実接続・エージェント動作・回答品質は未確認**です。設定例の `liquid/lfm-2.5-2.6b:free` は候補であり、開催前に提供状況・機能を確認し、担当Aがpreflightと基本質問を実行してください。
+OpenRouterの `nvidia/nemotron-3.5-super-vl:free` で、nativeツール・schema構造化出力・TF-IDF検索による基本質問の実行に成功しました（API 5回、26.47秒、評価OK）。 提供状況と各アカウントの制限は開催前にも確認してください。
 
 Bによる別PCでの初見導入確認、参加者各PCでのメモリ・速度確認は別途必要です。今回のモデル1件と基本質問の成功は、全モデル・全質問の品質検証ではありません。nomic v1.5は英語中心のモデルなので、日本語の検索結果も出典を照合してください。
 
@@ -44,4 +44,21 @@ Bによる別PCでの初見導入確認、参加者各PCでのメモリ・速度
 
 ## OpenRouterの互換性表示と事前チェック
 
-公開APIでNemotron 3.5 Lightning無料版にはtools/tool_choiceがあり、response_format/structured_outputsがないことを確認しました。schemaとの不整合を生成前に止め、jsonモードへ明示変更する案内を追加しました。404の理由別案内と秘密値の非表示、GUIの表示更新をモックで検証しています。これはAPIキーを使ったエージェント実行の成功確認とは別で、OpenRouterの実動確認は引き続き未完了です。
+公開APIでNemotron 3.5 Lightning無料版にはtools/tool_choiceがあり、response_format/structured_outputsがないことを確認しました。schemaとの不整合を生成前に止め、jsonモードへ明示変更する案内を追加しました。404の理由別案内と秘密値の非表示、GUIの表示更新をモックで検証しています。その後、下記のSuper VLモデルで実APIによる成功確認を完了しました。
+
+## OpenRouter実APIの成功記録
+
+2026-10-29 16:32 JST、利用者がGUIへキーを入力して実行しました。
+
+| 設定・結果 | 確認値 |
+|---|---|
+| モデル | `nvidia/nemotron-3.5-super-vl:free` |
+| ツール／構造化出力 | `native` / `schema` |
+| 検索 | TF-IDF（埋め込みAPI不要） |
+| サブタスク／出力上限 | 1 / 1200 tokens |
+| API呼び出し／所要時間 | 5回 / 26.47秒 |
+| 結果 | 評価OK。QA row 6の認証アプリ選択・QR読取・コード入力による有効化と回答を照合 |
+
+[詳細実行結果](examples/openrouter-success.json)／[段階ログ](examples/openrouter-success.log)。計画・ネイティブ検索ツール・schema評価・最終回答まで確認しています。独立した3リクエストのpreflightは今回の成功記録とは別で、未実行です。
+
+熟練者Aの成果物（OpenRouter無料モデル対応の配布コード、有料API不要の検索、設定例、成功質問、実行ログ）は揃いました。Bの別PCでの初見導入確認、開催前の無料モデル提供状況の再確認は別途行ってください。別モデルや別質問の成功を保証するものではありません。

@@ -35,7 +35,18 @@
     "tfidf_search_expected_qa_row_6": "passed",
     "uv_matches_audited_versions": "passed"
   },
-  "openrouter_live": "not tested (user-selected scope)",
+  "openrouter_live": {
+    "status": "passed",
+    "model": "nvidia/nemotron-3.5-super-vl:free",
+    "tool_mode": "native",
+    "structured_mode": "schema",
+    "search_backend": "tfidf",
+    "api_calls": 5,
+    "elapsed_seconds": 26.47,
+    "all_subtasks_completed": true,
+    "answer_checked_against": "XYZ_system_QA.csv row 6",
+    "separate_preflight": "not executed; connectivity, native tools and schema exercised by the successful run"
+  },
   "fresh_environment_dependency_check": "passed (46 exact versions, pip check)",
   "default_full_logs": true,
   "logging_checks": [
@@ -87,6 +98,6 @@
     "incompatible_settings": "blocked before generation",
     "json_mode": "explicit selection",
     "404_errors": "classified without raw body",
-    "live_inference": "not yet passed"
+    "live_inference": "passed with super-vl:free, native + schema"
   }
 }
