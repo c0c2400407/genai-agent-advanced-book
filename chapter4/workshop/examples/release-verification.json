@@ -1,0 +1,79 @@
+{
+  "release": "2026-10-29 security update",
+  "python": "3.14.10",
+  "openssl": "3.5.9",
+  "automatic_tests": {
+    "passed": 36,
+    "failed": 0
+  },
+  "osv_packages": 46,
+  "osv_advisory_matches": 0,
+  "hash_locked_fresh_install": "passed",
+  "lmstudio_gui": {
+    "status": "passed",
+    "elapsed_seconds": 83.25,
+    "llm_calls": 5,
+    "embedding_query_calls": 1,
+    "question_example": "QUESTIONS.md: 基本の質問",
+    "observed_answer": "二段階認証で認証アプリを選び、QRコードを読み取り、生成コードを入力して有効化。出典はQA CSV row 6。",
+    "answer_checked": "GUI回答タブを目視し、質問例の期待手順と照合",
+    "content_saved": false,
+    "language_models_loaded": 1,
+    "embedding_models_loaded": 1
+  },
+  "zip_smoke": {
+    "status": "passed",
+    "archive_crc": "passed",
+    "sha256_manifest": "passed",
+    "documentation_links": "passed",
+    "excluded_private_files": "passed",
+    "help": "passed",
+    "index_counts": {
+      "manual": 43,
+      "qa": 15
+    },
+    "tfidf_search_expected_qa_row_6": "passed",
+    "uv_matches_audited_versions": "passed"
+  },
+  "openrouter_live": "not tested (user-selected scope)",
+  "fresh_environment_dependency_check": "passed (46 exact versions, pip check)",
+  "default_full_logs": true,
+  "logging_checks": [
+    "default full result saved",
+    "opt-out excludes content",
+    "API keys redacted",
+    "failure records question/error type/location"
+  ],
+  "lmstudio_default_logging_cli": {
+    "status": "passed",
+    "elapsed_seconds": 29.89,
+    "api_calls": 5,
+    "embedding_query_calls": 1,
+    "content_saved": true,
+    "recorded_stages": [
+      "question",
+      "plan",
+      "tool_selection",
+      "search_results",
+      "subtask_answer",
+      "reflection",
+      "final_answer"
+    ]
+  },
+  "structure_refactor": {
+    "workflow": "src/agent.py",
+    "operations": "src/steps.py",
+    "execution": "workshop/service.py",
+    "run_logs": "workshop/run_log.py",
+    "logging_import_side_effect": "removed",
+    "regression_tests": "passed",
+    "lmstudio_verification": {
+      "status": "passed",
+      "elapsed_seconds": 29.89,
+      "api_calls": 5,
+      "embedding_query_calls": 1,
+      "content_saved": true
+    },
+    "code_guide": "workshop/CODE_GUIDE.md"
+  }
+}

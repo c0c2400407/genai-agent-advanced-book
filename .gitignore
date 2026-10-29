@@ -60,4 +60,15 @@ dmypy.json
 cython_debug/
 
 .rag_data/
+.workshop/
+.runtime/
+.venv-secure/
+chapter4/workshop/logs/
+chapter4/workshop/test-results.log
+# 配布確認済みの実行例だけを管理する
+chapter4/workshop/examples/*
+!chapter4/workshop/examples/secure-lmstudio-run.json
+!chapter4/workshop/examples/secure-lmstudio-run.log
+!chapter4/workshop/examples/security-audit.json
+!chapter4/workshop/examples/release-verification.json
 .DS_Store

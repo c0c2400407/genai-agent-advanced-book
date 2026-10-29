@@ -1,0 +1,10 @@
+# Direct dependencies; install via ../requirements.txt for the complete hash-locked environment.
+pip==26.2.2
+openai==2.54.0
+langgraph==1.2.18
+langchain-core==1.7.1
+langsmith==0.14.14
+pydantic==2.14.1
+pydantic-settings==2.16.2
+pypdf==6.21.4
+httpx==0.28.1

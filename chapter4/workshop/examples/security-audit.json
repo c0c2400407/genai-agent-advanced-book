@@ -1,0 +1,236 @@
+{
+  "checked_at": "2026-10-29T06:04:15.712870+00:00",
+  "source": "https://api.osv.dev/v1/querybatch",
+  "packages": [
+    {
+      "name": "annotated-types",
+      "version": "0.8.0",
+      "advisories": []
+    },
+    {
+      "name": "anyio",
+      "version": "4.15.1",
+      "advisories": []
+    },
+    {
+      "name": "certifi",
+      "version": "2026.10.23",
+      "advisories": []
+    },
+    {
+      "name": "charset-normalizer",
+      "version": "3.5.2",
+      "advisories": []
+    },
+    {
+      "name": "colorama",
+      "version": "0.4.6",
+      "advisories": []
+    },
+    {
+      "name": "distro",
+      "version": "1.9.0",
+      "advisories": []
+    },
+    {
+      "name": "h11",
+      "version": "0.16.0",
+      "advisories": []
+    },
+    {
+      "name": "httpcore",
+      "version": "1.0.9",
+      "advisories": []
+    },
+    {
+      "name": "httpcore2",
+      "version": "2.16.0",
+      "advisories": []
+    },
+    {
+      "name": "httpx",
+      "version": "0.28.1",
+      "advisories": []
+    },
+    {
+      "name": "httpx2",
+      "version": "2.16.0",
+      "advisories": []
+    },
+    {
+      "name": "idna",
+      "version": "3.20",
+      "advisories": []
+    },
+    {
+      "name": "jiter",
+      "version": "0.18.0",
+      "advisories": []
+    },
+    {
+      "name": "jsonpatch",
+      "version": "1.38",
+      "advisories": []
+    },
+    {
+      "name": "jsonpointer",
+      "version": "3.6",
+      "advisories": []
+    },
+    {
+      "name": "langchain-core",
+      "version": "1.7.1",
+      "advisories": []
+    },
+    {
+      "name": "langchain-protocol",
+      "version": "0.0.20",
+      "advisories": []
+    },
+    {
+      "name": "langgraph",
+      "version": "1.2.18",
+      "advisories": []
+    },
+    {
+      "name": "langgraph-checkpoint",
+      "version": "4.3.1",
+      "advisories": []
+    },
+    {
+      "name": "langgraph-prebuilt",
+      "version": "1.1.1",
+      "advisories": []
+    },
+    {
+      "name": "langgraph-sdk",
+      "version": "0.4.10",
+      "advisories": []
+    },
+    {
+      "name": "langsmith",
+      "version": "0.14.14",
+      "advisories": []
+    },
+    {
+      "name": "openai",
+      "version": "2.54.0",
+      "advisories": []
+    },
+    {
+      "name": "orjson",
+      "version": "3.13.0",
+      "advisories": []
+    },
+    {
+      "name": "ormsgpack",
+      "version": "1.13.0",
+      "advisories": []
+    },
+    {
+      "name": "packaging",
+      "version": "26.3",
+      "advisories": []
+    },
+    {
+      "name": "pip",
+      "version": "26.2.2",
+      "advisories": []
+    },
+    {
+      "name": "pydantic",
+      "version": "2.14.1",
+      "advisories": []
+    },
+    {
+      "name": "pydantic-settings",
+      "version": "2.16.2",
+      "advisories": []
+    },
+    {
+      "name": "pydantic_core",
+      "version": "2.50.1",
+      "advisories": []
+    },
+    {
+      "name": "pypdf",
+      "version": "6.21.4",
+      "advisories": []
+    },
+    {
+      "name": "python-dotenv",
+      "version": "1.2.4",
+      "advisories": []
+    },
+    {
+      "name": "PyYAML",
+      "version": "6.0.3",
+      "advisories": []
+    },
+    {
+      "name": "requests",
+      "version": "2.34.2",
+      "advisories": []
+    },
+    {
+      "name": "requests-toolbelt",
+      "version": "1.0.0",
+      "advisories": []
+    },
+    {
+      "name": "sniffio",
+      "version": "1.3.1",
+      "advisories": []
+    },
+    {
+      "name": "tenacity",
+      "version": "9.2.1",
+      "advisories": []
+    },
+    {
+      "name": "tqdm",
+      "version": "4.70.1",
+      "advisories": []
+    },
+    {
+      "name": "truststore",
+      "version": "0.10.5",
+      "advisories": []
+    },
+    {
+      "name": "typing-inspection",
+      "version": "0.4.4",
+      "advisories": []
+    },
+    {
+      "name": "typing_extensions",
+      "version": "4.16.0",
+      "advisories": []
+    },
+    {
+      "name": "urllib3",
+      "version": "2.8.0",
+      "advisories": []
+    },
+    {
+      "name": "uuid_utils",
+      "version": "0.19.0",
+      "advisories": []
+    },
+    {
+      "name": "websockets",
+      "version": "17.3",
+      "advisories": []
+    },
+    {
+      "name": "xxhash",
+      "version": "4.0.2",
+      "advisories": []
+    },
+    {
+      "name": "zstandard",
+      "version": "0.25.0",
+      "advisories": []
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+# 第4章の勉強会版。ほかの章の依存関係は含みません。
+-r chapter4/requirements.txt
