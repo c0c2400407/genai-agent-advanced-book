@@ -3,7 +3,7 @@
   "python": "3.14.10",
   "openssl": "3.5.9",
   "automatic_tests": {
-    "passed": 36,
+    "passed": 40,
     "failed": 0
   },
   "osv_packages": 46,
@@ -81,5 +81,12 @@
     "venv",
     ".venv-secure"
   ],
-  "launcher_check": "passed: incompatible .venv skipped; compatible .venv-secure selected"
+  "launcher_check": "passed: incompatible .venv skipped; compatible .venv-secure selected",
+  "openrouter_capability_validation": {
+    "public_metadata": "checked",
+    "incompatible_settings": "blocked before generation",
+    "json_mode": "explicit selection",
+    "404_errors": "classified without raw body",
+    "live_inference": "not yet passed"
+  }
 }

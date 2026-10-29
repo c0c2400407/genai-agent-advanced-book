@@ -6,7 +6,7 @@ from contextlib import ExitStack
 from src.agent import HelpDeskAgent
 from src.llm import LLM
 from src.security import endpoint, validate_question
-from workshop.checks import fetch_models, preflight, require_loaded_model
+from workshop.checks import fetch_models, preflight, require_loaded_model, require_remote_capabilities
 from workshop.run_log import RunLog
 from workshop.runner_lock import single_run
 from workshop.search import ROOT, LocalSearch, build_index
@@ -39,6 +39,7 @@ def _execute(settings, command, question):
     with RunLog(ROOT, settings, command, local_model) as record, ExitStack() as resources:
         llm = search = None
         try:
+            require_remote_capabilities(settings, require_native=command == "preflight")
             if local_model:
                 logging.info("LM Studio context_length=%s (GUI設定)", local_model["loaded_context_length"])
             if command == "preflight":

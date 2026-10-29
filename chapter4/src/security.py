@@ -1,4 +1,5 @@
 """通信・秘密情報・入力サイズの境界。モデル出力を命令として実行しない。"""
+
 import json
 import logging
 import re
@@ -21,7 +22,9 @@ MAX_TOOL_CALLS = 2
 
 def ensure_runtime():
     if not (3, 14, 10) <= sys.version_info[:3] < (3, 15, 0):
-        raise RuntimeError("対策版はPython 3.14.10以上の3.14系で起動してください。導入ガイドに従って仮想環境を作り直してください。名前は.venvやvenvで構いません。")
+        raise RuntimeError(
+            "対策版はPython 3.14.10以上の3.14系で起動してください。導入ガイドに従って仮想環境を作り直してください。名前は.venvやvenvで構いません。"
+        )
     if ssl.OPENSSL_VERSION_INFO < (3, 5, 0, 9, 0):
         raise RuntimeError("OpenSSLのセキュリティ更新を含むPython配布物が必要です")
 
@@ -79,8 +82,12 @@ class BoundedTransport(httpx.BaseTransport):
         if response.headers.get("content-encoding", "identity").lower() != "identity":
             response.close()
             raise httpx.ReadError("圧縮されたAPI応答は受け付けません")
-        return httpx.Response(response.status_code, headers=response.headers,
-            stream=BoundedStream(response.stream, self.limit), extensions=response.extensions)
+        return httpx.Response(
+            response.status_code,
+            headers=response.headers,
+            stream=BoundedStream(response.stream, self.limit),
+            extensions=response.extensions,
+        )
 
     def close(self):
         self.transport.close()
@@ -88,13 +95,31 @@ class BoundedTransport(httpx.BaseTransport):
 
 def http_client(timeout=180):
     # ローカル宛ての質問やキーを、環境変数の外部プロキシへ送らない。
-    return httpx.Client(transport=BoundedTransport(), trust_env=False, follow_redirects=False,
-                        timeout=timeout, headers={"Accept-Encoding": "identity"})
+    return httpx.Client(
+        transport=BoundedTransport(),
+        trust_env=False,
+        follow_redirects=False,
+        timeout=timeout,
+        headers={"Accept-Encoding": "identity"},
+    )
 
 
 def public_error(exc, secrets=()):
     if isinstance(exc, (APIStatusError, httpx.HTTPStatusError)):
         code = exc.status_code if isinstance(exc, APIStatusError) else exc.response.status_code
+        # 本文は表示せず、404の既知の理由だけを定型文へ変換する。
+        if code == 404:
+            try:
+                body = exc.response.json()
+                message = body.get("error", {}).get("message", "")
+                message = message.lower() if isinstance(message, str) else ""
+            except (ValueError, AttributeError, TypeError):
+                message = ""
+            if "data policy" in message or "privacy" in message:
+                return "APIがHTTP 404を返しました。OpenRouterのプライバシー設定と利用可能な配信先が一致していません。設定内容と配信先の利用条件を確認してください。"
+            if "parameter" in message or "tool use" in message:
+                return "APIがHTTP 404を返しました。指定した構造化出力・ツール等に対応する配信先がありません。モデルの対応機能と設定を確認してください。"
+            return "APIがHTTP 404を返しました。モデルID、配信先の稼働状況、対応機能、OpenRouterのプライバシー設定を確認してください。"
         return f"APIがHTTP {code}を返しました。接続先、認証、モデル、利用制限を確認してください。"
     if isinstance(exc, (APIConnectionError, httpx.HTTPError)):
         return "APIとの通信に失敗しました。接続先とサーバーの状態を確認してください。"
@@ -116,8 +141,12 @@ def redact(text, secrets=()):
 
 def redact_payload(value, secrets=()):
     if isinstance(value, dict):
-        return {key: "[REDACTED]" if "apikey" in key.lower().replace("_", "").replace("-", "") or key.lower() == "authorization"
-                else redact_payload(item, secrets) for key, item in value.items()}
+        return {
+            key: "[REDACTED]"
+            if "apikey" in key.lower().replace("_", "").replace("-", "") or key.lower() == "authorization"
+            else redact_payload(item, secrets)
+            for key, item in value.items()
+        }
     if isinstance(value, list):
         return [redact_payload(item, secrets) for item in value]
     if isinstance(value, str):
@@ -158,8 +187,13 @@ def query_arguments(raw, expected):
         raise ValueError("検索ツールの引数はJSONオブジェクトで指定してください") from None
     if not isinstance(args, dict) or set(args) != set(expected):
         raise ValueError("検索ツールの引数名が不正です")
-    if any(not isinstance(value, str) or not value.strip() or len(value) > MAX_QUERY_CHARS
-           or any(ord(c) < 32 and c not in "\t\n\r" for c in value) for value in args.values()):
+    if any(
+        not isinstance(value, str)
+        or not value.strip()
+        or len(value) > MAX_QUERY_CHARS
+        or any(ord(c) < 32 and c not in "\t\n\r" for c in value)
+        for value in args.values()
+    ):
         raise ValueError(f"検索語は1〜{MAX_QUERY_CHARS}文字の文字列で指定してください")
     return args
 

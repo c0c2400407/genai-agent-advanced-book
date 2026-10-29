@@ -69,6 +69,38 @@ def require_loaded_model(settings):
     return {key: models[0].get(key) for key in ["id", "state", "loaded_context_length", "max_context_length"]}
 
 
+def capability_problem(model, tool_mode, structured_mode, require_native=False):
+    """公開メタデータと設定の不整合を説明する。設定は自動変更しない。"""
+    parameters = model.get("supported_parameters")
+    if not isinstance(parameters, list) or not all(isinstance(item, str) for item in parameters):
+        return "対応機能を確認できません。モデル一覧を更新するか、別の無料モデルを選んでください。"
+    if structured_mode == "schema" and not {"response_format", "structured_outputs"}.issubset(parameters):
+        return "このモデルはschema構造化出力への対応が公開一覧にありません。「構造化出力」をjsonへ変更するか、schema対応モデルを選んでください。"
+    if (tool_mode == "native" or require_native) and not {"tools", "tool_choice"}.issubset(parameters):
+        return "このモデルはネイティブツール呼び出しへの対応が公開一覧にありません。" + (
+            "接続・機能確認にはネイティブツール対応モデルを選んでください。"
+            if require_native
+            else "「ツール」をjsonへ変更するか、ツール対応モデルを選んでください。"
+        )
+    return ""
+
+
+def require_remote_capabilities(settings, require_native=False):
+    _base, remote = endpoint(settings.openai_api_base)
+    if not remote:
+        return
+    if not settings.openai_model.endswith(":free"):
+        raise ValueError("OpenRouterでは末尾:freeの固定モデルを選んでください")
+    selected = next(
+        (model for model in fetch_models(settings.openai_api_base) if model["id"] == settings.openai_model), None
+    )
+    if selected is None:
+        raise ValueError("選択したモデルが公開一覧にありません。モデル一覧を更新して選び直してください。")
+    problem = capability_problem(selected, settings.tool_mode, settings.structured_mode, require_native)
+    if problem:
+        raise ValueError(problem)
+
+
 def preflight(llm):
     """3リクエストで接続、ネイティブツール、構造化出力を別々に確認する。"""
     model = llm.settings.openai_model

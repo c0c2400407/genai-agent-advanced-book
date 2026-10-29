@@ -81,6 +81,16 @@ class GuiTests(unittest.TestCase):
         self.assertIn("モデル一覧を更新", app.status.set.call_args.args[0])
         self.assertFalse(any(call.args[0] is app.answer for call in app.put.call_args_list))
 
+    def test_openrouter_status_explains_schema_mismatch_and_json_compatibility(self):
+        app = self.app()
+        app.provider.get.return_value = "OpenRouter"
+        app.model_catalogues["OpenRouter"] = [{"id": "test-local", "supported_parameters": ["tools", "tool_choice"]}]
+        app.update_model_status()
+        self.assertIn("jsonへ変更", app.context.set.call_args.args[0])
+        app.structured_mode.get.return_value = "json"
+        app.update_model_status()
+        self.assertIn("現在の設定に対応", app.context.set.call_args.args[0])
+
     def test_manual_refresh_and_common_execution(self):
         app = self.app()
         with patch("workshop.gui.list_models", return_value=[{"id": "test-local", "loaded_context_length": 4096}]):

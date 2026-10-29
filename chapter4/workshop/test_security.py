@@ -27,6 +27,57 @@ from workshop.service import execute
 
 
 class SecurityTests(unittest.TestCase):
+    def test_remote_mismatch_is_saved_before_any_generation(self):
+        settings = Settings(_env_file=None, openai_model="vendor/test:free", openai_api_key="fake")
+        models = [{"id": "vendor/test:free", "supported_parameters": ["tools", "tool_choice"]}]
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            patch("workshop.service.ROOT", Path(tmp)),
+            patch("workshop.checks.fetch_models", return_value=models),
+            patch("workshop.service.HelpDeskAgent") as agent,
+        ):
+            result, path = execute(settings, "run", "test question")
+            self.assertEqual(result["api_calls"], 0)
+            self.assertEqual(result["status"], "error")
+            self.assertIn("jsonへ変更", result["error"])
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["question"], "test question")
+            agent.assert_not_called()
+
+    def test_remote_capabilities_respect_explicit_modes_and_model_existence(self):
+        from workshop.checks import require_remote_capabilities
+
+        settings = Settings(_env_file=None, openai_model="vendor/test:free", structured_mode="json", tool_mode="json")
+        with patch(
+            "workshop.checks.fetch_models", return_value=[{"id": settings.openai_model, "supported_parameters": []}]
+        ):
+            require_remote_capabilities(settings)
+            with self.assertRaisesRegex(ValueError, "ネイティブ"):
+                require_remote_capabilities(settings, require_native=True)
+        with (
+            patch("workshop.checks.fetch_models", return_value=[]),
+            self.assertRaisesRegex(ValueError, "公開一覧にありません"),
+        ):
+            require_remote_capabilities(settings)
+
+    def test_404_guidance_classifies_without_exposing_provider_body(self):
+        from src.security import public_error
+
+        secret = "sk-or-v1-" + "z" * 64
+        for message, expected in [
+            ("No endpoints found that can handle requested parameters " + secret, "対応する配信先"),
+            ("No endpoints found matching your data policy " + secret, "プライバシー"),
+            ("unknown " + secret, "モデルID"),
+        ]:
+            response = httpx.Response(
+                404,
+                request=httpx.Request("POST", "https://openrouter.ai/api/v1/chat/completions"),
+                json={"error": {"message": message}},
+            )
+            error = httpx.HTTPStatusError(secret, request=response.request, response=response)
+            shown = public_error(error)
+            self.assertIn(expected, shown)
+            self.assertNotIn(secret, shown)
+
     def test_runtime_openssl_patch_version_is_checked(self):
         with patch("src.security.ssl.OPENSSL_VERSION_INFO", (3, 5, 0, 9, 0)):
             ensure_runtime()

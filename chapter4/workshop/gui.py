@@ -9,6 +9,7 @@ from tkinter import messagebox, scrolledtext, ttk
 
 from src.configs import Settings
 from src.custom_logger import configure_logging
+from workshop.checks import capability_problem
 from workshop.service import DEFAULT_QUESTION, execute, list_models, prepare_index
 from src.security import reveal, RedactingFormatter, public_error, validate_question, ensure_runtime
 
@@ -130,6 +131,7 @@ class App:
         ]:
             ttk.Label(options, text=label).pack(side="left", padx=(0, 5))
             widget = ttk.Combobox(options, textvariable=variable, values=values, state="readonly", width=8)
+            widget.bind("<<ComboboxSelected>>", self.update_model_status)
             widget.pack(side="left", padx=(0, 14))
             self.controls.append((widget, "readonly"))
         for label, variable, minimum, maximum, width in [
@@ -197,6 +199,19 @@ class App:
 
     def update_model_status(self, _event=None):
         if self.provider.get() != "LM Studio":
+            selected = next((m for m in self.model_catalogues["OpenRouter"] if m["id"] == self.model.get()), None)
+            if selected:
+                parameters = selected.get("supported_parameters") or []
+                if not isinstance(parameters, list) or not all(isinstance(item, str) for item in parameters):
+                    parameters = []
+                tools = "対応" if {"tools", "tool_choice"}.issubset(parameters) else "未確認"
+                schema = "対応" if {"response_format", "structured_outputs"}.issubset(parameters) else "未確認"
+                problem = capability_problem(selected, self.tool_mode.get(), self.structured_mode.get())
+                self.context.set(
+                    f"公開情報: ツール {tools} / schema {schema}。{problem or '現在の設定に対応。配信状況やアカウント制限は実接続で確認します。'}"
+                )
+            else:
+                self.context.set("対応機能は未確認です。「モデル一覧を更新」で確認してください。")
             return
         selected = next((m for m in self.model_catalogues["LM Studio"] if m["id"] == self.model.get()), None)
         if selected:
