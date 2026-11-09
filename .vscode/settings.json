@@ -17,5 +17,6 @@
             "ms-python.vscode-pylance", // 型チェック＆リッチ補完
             "ms-toolsai.jupyter"        // Jupyter ノートブック
         ]
-    }
+    },
+    "python.terminal.useEnvFile": true
 }
