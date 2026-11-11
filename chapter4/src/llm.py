@@ -14,6 +14,7 @@ class LLM:
         self.settings = settings
         self.model = settings.openai_model
         base_url, self.remote = endpoint(settings.openai_api_base)
+        self.base_url = base_url
         key = reveal(settings.openai_api_key)
         if not settings.openai_model:
             raise ValueError("LLM_MODELにモデルIDを明示してください")
@@ -55,6 +56,8 @@ class LLM:
         try:
             response = self.client.chat.completions.create(**kwargs)
         except Exception as exc:
+            if self.remote and getattr(exc, "status_code", None) == 401:
+                self._log_openrouter_auth_status()
             raise RuntimeError(public_error(exc, [self.settings.openai_api_key])) from None
         if not response.choices:
             raise ValueError("API応答にchoicesがありません")
@@ -63,6 +66,36 @@ class LLM:
         logger.info("API response model=%s seconds=%.2f tokens=%s", response.model,
                     time.monotonic() - started, response.usage.total_tokens if response.usage else None)
         return response
+
+    def _log_openrouter_auth_status(self):
+        """401時にキーの認証状態だけを確認し、秘密情報や応答本文は記録しない。"""
+        logger.info("OPENROUTER_AUTH_CHECK status=started")
+        try:
+            with http_client(timeout=10) as client:
+                response = client.get(
+                    self.base_url + "/key",
+                    headers={"Authorization": f"Bearer {reveal(self.settings.openai_api_key)}"},
+                )
+            authenticated = response.status_code == 200
+            result = "success" if response.status_code in {200, 401} else "unavailable"
+            logger.info(
+                "OPENROUTER_AUTH_CHECK status=%s authenticated=%s http_status=%d",
+                result,
+                str(authenticated).lower(),
+                response.status_code,
+            )
+        except Exception as exc:
+            chain = []
+            current = exc
+            seen = set()
+            while current is not None and id(current) not in seen and len(chain) < 5:
+                seen.add(id(current))
+                chain.append(type(current).__name__)
+                current = current.__cause__ or current.__context__
+            logger.warning(
+                "OPENROUTER_AUTH_CHECK status=unavailable exception_chain=%s",
+                ">".join(chain),
+            )
 
     def close(self):
         self.client.close()
