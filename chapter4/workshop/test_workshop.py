@@ -199,6 +199,54 @@ class WorkshopTests(unittest.TestCase):
         self.assertEqual(current["loaded_context_length"], 8192)
         self.assertEqual(current["max_context_length"], 262144)
 
+    def test_run_loads_selected_model_then_unloads_previous_chat_model(self):
+        requests = []
+        before = [
+            {"id": "test-local", "type": "llm", "state": "not-loaded"},
+            {"id": "old-model", "type": "llm", "state": "loaded"},
+        ]
+        after = [{"id": "test-local", "type": "llm", "state": "loaded", "loaded_context_length": 8192}]
+
+        def handle(request):
+            requests.append(request)
+            if request.method == "GET" and request.url.path == "/api/v1/models":
+                return httpx.Response(
+                    200,
+                    json={
+                        "models": [
+                            {"key": "test-local", "type": "llm", "loaded_instances": []},
+                            {"key": "old-model", "type": "llm", "loaded_instances": [{"id": "old-instance"}]},
+                        ]
+                    },
+                )
+            if request.method == "POST" and request.url.path == "/api/v1/models/load":
+                self.assertEqual(json.loads(request.content), {"model": "test-local"})
+                return httpx.Response(200, json={"status": "loaded", "instance_id": "test-local"})
+            if request.method == "POST" and request.url.path == "/api/v1/models/unload":
+                self.assertEqual(json.loads(request.content), {"instance_id": "old-instance"})
+                return httpx.Response(200, json={"instance_id": "old-instance"})
+            self.fail(f"Unexpected LM Studio request: {request.method} {request.url}")
+
+        with (
+            patch("workshop.checks.fetch_models", side_effect=[before, after]),
+            patch("workshop.checks.http_client", return_value=httpx.Client(transport=httpx.MockTransport(handle))),
+        ):
+            current = require_loaded_model(self.settings(), auto_load=True)
+
+        self.assertEqual(current["id"], "test-local")
+        self.assertEqual(current["loaded_context_length"], 8192)
+        self.assertEqual([request.url.path.rsplit("/", 1)[-1] for request in requests], ["models", "load", "unload"])
+
+    def test_run_does_not_reload_already_selected_model(self):
+        available = [{"id": "test-local", "type": "llm", "state": "loaded", "loaded_context_length": 8192}]
+        with (
+            patch("workshop.checks.fetch_models", return_value=available),
+            patch("workshop.checks.http_client") as client_factory,
+        ):
+            current = require_loaded_model(self.settings(), auto_load=True)
+        self.assertEqual(current["id"], "test-local")
+        client_factory.assert_not_called()
+
     def test_openrouter_request_contract(self):
         sent = []
 
@@ -325,15 +373,17 @@ class WorkshopTests(unittest.TestCase):
         import logging
 
         count = len(logging.getLogger().handlers)
+        settings = self.settings()
         with tempfile.TemporaryDirectory() as tmp:
             (Path(tmp) / "workshop").mkdir()
             with (
                 patch("workshop.service.ROOT", Path(tmp)),
-                patch("workshop.service.require_loaded_model", return_value=None),
+                patch("workshop.service.require_loaded_model", return_value=None) as model_check,
                 patch("workshop.service.LLM", side_effect=ValueError("接続設定が不正です")),
             ):
-                result, path = execute(self.settings(), "preflight")
+                result, path = execute(settings, "preflight")
                 saved = json.loads(path.read_text(encoding="utf-8"))
+        model_check.assert_called_once_with(settings, auto_load=False)
         self.assertEqual(result["status"], "error")
         self.assertEqual(saved["api_calls"], 0)
         self.assertEqual(saved["error"], "接続設定が不正です")
@@ -362,19 +412,21 @@ class WorkshopTests(unittest.TestCase):
         agent = Mock()
         agent.llm.calls = 2
         agent.run_agent.side_effect = RuntimeError("graph failed")
+        settings = self.settings()
         with tempfile.TemporaryDirectory() as tmp:
             with (
                 patch("workshop.service.ROOT", Path(tmp)),
-                patch("workshop.service.require_loaded_model", return_value=None),
+                patch("workshop.service.require_loaded_model", return_value=None) as model_check,
                 patch("workshop.service.LocalSearch") as search,
                 patch("workshop.service.HelpDeskAgent", return_value=agent),
             ):
                 search.return_value.query_calls = 0
-                result, path = execute(self.settings(), "run", "設定手順は？")
+                result, path = execute(settings, "run", "設定手順は？")
                 self.assertEqual(result["status"], "error")
                 self.assertTrue(path.is_file())
                 search.return_value.close.assert_called_once()
                 agent.llm.close.assert_called_once()
+        model_check.assert_called_once_with(settings, auto_load=True)
         self.assertEqual(root.handlers, handlers)
         self.assertEqual(root.level, level)
 

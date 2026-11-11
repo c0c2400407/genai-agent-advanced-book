@@ -35,7 +35,7 @@ def execute(settings, command, question=DEFAULT_QUESTION):
 def _execute(settings, command, question):
     if command == "run":
         validate_question(question)
-    local_model = require_loaded_model(settings)
+    local_model = require_loaded_model(settings, auto_load=command == "run")
     with RunLog(ROOT, settings, command, local_model) as record, ExitStack() as resources:
         llm = search = None
         try:

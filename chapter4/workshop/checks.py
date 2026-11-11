@@ -1,7 +1,10 @@
-"""LM Studioの意図しない別モデル自動ロードを防ぐ。"""
+"""LM Studioの言語モデル状態を確認し、質問実行時は選択モデルへ切り替える。"""
 
 import json
 import logging
+import time
+
+import httpx
 
 from src.models import Plan
 from src.security import endpoint, http_client, public_error, reveal
@@ -75,17 +78,111 @@ def require_embedding_model(settings):
     return selected[0]
 
 
-def require_loaded_model(settings):
-    _base, remote = endpoint(settings.openai_api_base)
+def _load_selected_lmstudio_model(base_url, model_id, api_key):
+    api_url = base_url.removesuffix("/v1") + "/api/v1"
+    key = reveal(api_key)
+    headers = {"Authorization": f"Bearer {key}"} if key else {}
+    started = time.monotonic()
+    logger.info("MODEL_AUTO_LOAD status=started model=%s", model_id)
+    try:
+        with http_client(timeout=600) as client:
+            response = client.get(api_url + "/models", headers=headers)
+            logger.info("MODEL_MANAGER_LIST http_status=%d", response.status_code)
+            response.raise_for_status()
+            catalogue = response.json().get("models")
+            if not isinstance(catalogue, list):
+                raise ValueError("LM Studioモデル管理APIの一覧形式が不正です")
+            selected = next(
+                (
+                    item
+                    for item in catalogue
+                    if isinstance(item, dict) and item.get("key") == model_id and item.get("type") == "llm"
+                ),
+                None,
+            )
+            if selected is None:
+                raise ValueError(
+                    f"指定した言語モデル {model_id!r} がLM Studioにありません。モデルをダウンロードして一覧を更新してください。"
+                )
+            instances = selected.get("loaded_instances", [])
+            if not isinstance(instances, list):
+                raise ValueError("LM Studioモデルのロード状態が不正です")
+
+            if not instances:
+                response = client.post(api_url + "/models/load", headers=headers, json={"model": model_id})
+                logger.info("MODEL_AUTO_LOAD_RESPONSE http_status=%d", response.status_code)
+                response.raise_for_status()
+                loaded = response.json()
+                if not isinstance(loaded, dict) or loaded.get("status") != "loaded":
+                    raise ValueError("LM Studioからモデルロード完了を確認できませんでした")
+                logger.info(
+                    "MODEL_AUTO_LOAD status=success model=%s seconds=%.2f",
+                    model_id,
+                    time.monotonic() - started,
+                )
+            else:
+                logger.info("MODEL_AUTO_LOAD status=already_loaded model=%s", model_id)
+
+            # Keep the existing one-chat-model memory policy when switching models.
+            for item in catalogue:
+                if not isinstance(item, dict) or item.get("type") != "llm" or item.get("key") == model_id:
+                    continue
+                old_instances = item.get("loaded_instances", [])
+                if not isinstance(old_instances, list):
+                    continue
+                for instance in old_instances:
+                    instance_id = instance.get("id") if isinstance(instance, dict) else None
+                    if not isinstance(instance_id, str) or not instance_id:
+                        continue
+                    response = client.post(
+                        api_url + "/models/unload", headers=headers, json={"instance_id": instance_id}
+                    )
+                    logger.info("MODEL_AUTO_UNLOAD model=%s http_status=%d", item.get("key"), response.status_code)
+                    response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        status = exc.response.status_code
+        logger.error("MODEL_AUTO_LOAD status=failed http_status=%d", status)
+        if status in {404, 405}:
+            raise RuntimeError("このLM Studioは自動ロードAPIに対応していません。LM Studio 0.4.0以降へ更新してください。") from None
+        if status in {401, 403}:
+            raise RuntimeError("LM Studio APIの認証に失敗しました。APIトークンの設定を確認してください。") from None
+        raise RuntimeError(f"LM Studioのモデル管理APIがHTTP {status}を返しました。") from None
+    except Exception as exc:
+        logger.error("MODEL_AUTO_LOAD status=failed exception_chain=%s", type(exc).__name__)
+        if isinstance(exc, (ValueError, RuntimeError)):
+            raise
+        raise RuntimeError(public_error(exc)) from None
+
+
+def require_loaded_model(settings, *, auto_load=False):
+    base, remote = endpoint(settings.openai_api_base)
     if remote:
         return
-    models = [
-        model
-        for model in fetch_models(settings.openai_api_base, local_only=True)
-        if model.get("state") == "loaded" and model.get("type") in {"llm", "vlm"}
-    ]
+    available = fetch_models(settings.openai_api_base, local_only=True)
+    models = [model for model in available if model.get("state") == "loaded" and model.get("type") in {"llm", "vlm"}]
     loaded = [model["id"] for model in models]
+    if auto_load:
+        selected = next(
+            (model for model in available if model["id"] == settings.openai_model and model.get("type") in {"llm", "vlm"}),
+            None,
+        )
+        if selected is None:
+            raise ValueError(
+                f"指定した言語モデル {settings.openai_model!r} がLM Studioにありません。モデルをダウンロードして一覧を更新してください。"
+            )
+        if loaded != [settings.openai_model]:
+            _load_selected_lmstudio_model(base, settings.openai_model, settings.openai_api_key)
+            models = [
+                model
+                for model in fetch_models(settings.openai_api_base, local_only=True)
+                if model.get("state") == "loaded" and model.get("type") in {"llm", "vlm"}
+            ]
+            loaded = [model["id"] for model in models]
     if loaded != [settings.openai_model]:
+        if auto_load:
+            raise ValueError(
+                f"LM Studioで指定モデル {settings.openai_model!r} のロード完了を確認できませんでした。モデル一覧を更新してください。"
+            )
         raise ValueError(
             "LM Studioは使用する言語モデル1つだけを事前ロードしてください。"
             f" 指定={settings.openai_model!r}, ロード済み={loaded!r}。"
