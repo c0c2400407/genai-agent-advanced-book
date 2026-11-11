@@ -483,8 +483,8 @@ class App(QMainWindow):
 
 
 def launch():
-    ensure_runtime()
     configure_logging()
+    ensure_runtime()
     app = QApplication.instance() or QApplication(sys.argv)
     app.setApplicationName("第4章 ヘルプデスクAIエージェント")
     window = App()

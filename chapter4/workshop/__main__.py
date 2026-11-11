@@ -12,11 +12,8 @@ from workshop.service import DEFAULT_QUESTION, execute, list_models, prepare_ind
 
 
 def main():
-    ensure_runtime()
     configure_logging()
-    for stream in [sys.stdout, sys.stderr]:
-        if stream is not None and hasattr(stream, "reconfigure"):
-            stream.reconfigure(encoding="utf-8")
+    ensure_runtime()
     parser = argparse.ArgumentParser(description="第4章 ヘルプデスク勉強会版")
     parser.add_argument("command", choices=["gui", "models", "status", "index", "search", "preflight", "run"])
     parser.add_argument("question", nargs="?", default=DEFAULT_QUESTION)
@@ -94,5 +91,12 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except Exception as exc:
-        print(f"停止: {public_error(exc)}", file=sys.stderr)
+        message = f"停止: {public_error(exc)}\n"
+        try:
+            sys.stderr.write(message)
+        except UnicodeEncodeError:
+            if getattr(sys.stderr, "buffer", None) is not None:
+                sys.stderr.buffer.write(message.encode("utf-8"))
+            else:
+                raise
         sys.exit(1)
