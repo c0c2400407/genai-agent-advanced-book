@@ -49,6 +49,14 @@ Copy-Item .env.lmstudio.example .env
 
 モデルIDが表示されれば通信できています。GUIの「経過ログ」に `MODEL_LIST_RESPONSE ... http_status=200` と `MODEL_LIST_REQUEST ... status=success count=...` が出ることも確認してください。`PermissionError` または `ConnectError` の場合は、LM StudioのDeveloper画面でローカルサーバーが起動中か、アプリを実行している環境からlocalhostへの通信が許可されているか確認します。
 
+### AIアシスタントにセットアップを手伝ってもらう場合
+
+リポジトリのURLとこのガイドをAIに渡し、手順を一つずつ実行・確認するよう依頼できます。最初に次のように伝えると、実行環境の違いによる行き詰まりを避けやすくなります。
+
+> このリポジトリのWindows導入ガイドに沿って、chapter4をセットアップしてください。各手順の結果を確認しながら進めてください。あなたの実行環境からPyPIやPC上のLM Studio（localhost）へ接続できない場合は、API URLやキーを変更せず、Windowsの通常のPowerShellで実行するコマンドを案内してください。APIキーはチャットに貼らず、アプリの入力欄で扱います。
+
+AIのターミナルが隔離環境の場合、依存パッケージの名前解決やLM Studioへのローカル接続を拒否されることがあります。PyPIで名前解決エラー、またはLM Studioで `PermissionError` / `ConnectError` が出たら、ハッシュ確認を外したりファイアウォール全体を無効にしたりせず、ガイドのコマンドをWindows上の通常のPowerShellから実行してください。AIにはエラー内容を共有できますが、APIキーや秘密情報は共有しないでください。
+
 1. 呼び出す言語モデルと検索方式を選ぶ。Embedding方式ならEmbeddingモデルもロードして選ぶ。
 2. 「検索データを準備」を押す。初回のEmbedding生成には時間がかかる。
 3. 接続・機能確認を使う場合は、先に選択モデルをLM Studioでロードする。この確認ボタンは自動ロードしない。
