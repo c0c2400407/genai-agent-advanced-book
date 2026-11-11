@@ -1,6 +1,6 @@
 # 第4章 ヘルプデスクAIエージェント 勉強会・対策版
 
-2026-10-29版。LM StudioとOpenRouterに対応したWindows向けGUI／CLIです。「質問の分解 → 検索 → 回答 → 評価・再試行 → 最終回答」を確認できます。
+2026-10-29版。LM StudioとOpenRouterに対応したWindows向けGUI／CLIです。「質問の分解 → 検索 → 回答 → 評価・再試行 → 最終回答」を確認できます。**標準の接続先はLM Studioを推奨します。** OpenRouterは任意の代替です。無料モデルはリクエスト数の上限があり、複数回APIを呼ぶこのアプリでは試行を重ねると上限に達しやすいためです。
 
 **最初は [Windows導入ガイド](workshop/INSTALL_WINDOWS.md) の手順で準備してください。** Python 3.14.10以上の3.14系（OpenSSL 3.5.9以上）が必要です。GUIはPySide6を使います。古いPythonで作った環境を流用せず、仮想環境を新しく作ります。Dockerは今回使いません。
 
@@ -27,6 +27,6 @@ GUI起動後は呼び出す言語モデルと検索方式を選び、「検索�
 
 依存関係は `requirements.txt` → `workshop/requirements.lock.txt` で全件のバージョンとSHA256を固定しています。Windows x64用です。設定例以外の `.env`、APIキー、仮想環境はZIPに含めません。質問・回答・検索結果の本文保存は初期設定で有効です。不要な場合はGUIの保存チェックを外すか `SAVE_FULL_LOGS=false` にします。
 
-OpenRouterは末尾 `:free` の固定モデルIDを指定します。OpenRouterの `nvidia/nemotron-3.5-super-vl:free` で、nativeツール・schema構造化出力・TF-IDF検索による基本質問の実行に成功しました（API 5回、26.47秒、評価OK）。 成功した設定を `.env.openrouter.example` に反映しています。提供状況は開催前にも確認してください。
+OpenRouterを使う場合は末尾 `:free` の固定モデルIDを指定します。以前 `nvidia/nemotron-3.5-super-vl:free` で基本質問の成功を確認しましたが、これは当時の実績で、現在の提供・利用可能性を保証しません。無料枠は日次・分単位のリクエスト制限があり、失敗した生成も日次枠に数えられます。最新条件は[OpenRouter公式ページ](https://openrouter.ai/collections/free-models/)で確認してください。HTTP 401はキーの認証失敗、429は利用制限を示すため、原因を分けて確認してください。
 
 リポジトリ内に残る元の `src/tools`・`src/scripts`、Docker手順はこの配布版の対象外です。通常の導入は上記pip手順を使います。開発者向け `pyproject.toml`・`uv.lock` も対策後の直接依存に更新しています。

@@ -1,10 +1,12 @@
 # 第4章 ヘルプデスクAIエージェント 勉強会・対策版
 
-LM Studio／OpenRouterに対応したGUI・CLIを用意しています。2026-10-29の対策版ではPythonと依存関係を更新し、通信・入力・ログ保存・配布内容を見直しました。
+LM Studio／OpenRouterに対応したGUI・CLIを用意しています。**勉強会と通常利用ではLM Studioを推奨します。** 質問1件で複数回モデルを呼び出すため、OpenRouterの無料モデルは日次上限に達しやすく、モデル提供状況やアカウント状態にも左右されます。ローカルで実行できる環境がない場合に、OpenRouterを代替として使ってください。
+
+2026-10-29の対策版ではPythonと依存関係を更新し、通信・入力・ログ保存・配布内容を見直しました。
 
 **[Windows導入ガイド](chapter4/workshop/INSTALL_WINDOWS.md) → [第4章README](chapter4/README.md)** の順に確認してください。Python 3.14.10以上の3.14系、専用の `.venv` を使います。古いPythonで作った仮想環境は流用せず、新しく作成してください。セキュリティのためです。
 
-依存46パッケージのOSV照合は既知の該当0件、自動テストは40件通過です。[監査と対策の詳細](chapter4/workshop/SECURITY_AUDIT.md)、[動作確認と未確認事項](chapter4/workshop/STATUS.md)も収録しています。OpenRouterの `nvidia/nemotron-3.5-super-vl:free` で、nativeツール・schema構造化出力・TF-IDF検索による基本質問の実行に成功しました（API 5回、26.47秒、評価OK）。
+依存46パッケージのOSV照合は既知の該当0件、自動テストは45件通過です。[監査と対策の詳細](chapter4/workshop/SECURITY_AUDIT.md)、[動作確認と未確認事項](chapter4/workshop/STATUS.md)も収録しています。OpenRouterは成功実績もありますが、無料枠の継続利用は保証されません。制限の最新情報は[OpenRouter公式ページ](https://openrouter.ai/collections/free-models/)を確認してください。
 
 リポジトリ直下のrequirements.txtも対策版のハッシュ固定requirementsを参照します。他章の環境は今回の更新対象ではありません。
 
