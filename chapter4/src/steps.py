@@ -121,18 +121,17 @@ class AgentSteps:
         return update
 
     def create_answer(self, state: AgentState):
-        """各サブタスクの回答を、元の質問への最終回答にまとめる。"""
-        answers = [(item.task_name, item.subtask_answer) for item in state["subtask_results"]]
-        messages = [
-            {"role": "system", "content": self.prompts.create_last_answer_system_prompt},
-            {
-                "role": "user",
-                "content": self.prompts.create_last_answer_user_prompt.format(
-                    question=state["question"], plan=state["plan"], subtask_results=str(answers)
-                ),
-            },
-        ]
-        answer = self._answer(messages, "最終回答が空です")
+        """評価済みの回答だけを返し、未完了タスクは定型文で保留する。"""
+        answers = []
+        for item in state["subtask_results"]:
+            answer = item.subtask_answer.strip()
+            if item.is_completed and answer:
+                answers.append(answer)
+            else:
+                answers.append(
+                    f"{item.task_name}については、検索資料から根拠を確認できず、回答を確定できませんでした。"
+                )
+        answer = "\n\n".join(answers) or "検索結果から根拠を確認できず、回答を確定できませんでした。"
         self._record("FINAL_ANSWER", answer)
         return {"last_answer": answer}
 

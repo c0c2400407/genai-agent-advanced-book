@@ -12,7 +12,8 @@ from openai import OpenAI
 from src.agent import HelpDeskAgent
 from src.configs import Settings
 from src.llm import LLM
-from src.models import Plan
+from src.models import Plan, Subtask
+from src.steps import AgentSteps
 from workshop.search import LocalSearch, build_index
 from workshop.checks import require_loaded_model
 from workshop.runner_lock import single_run
@@ -53,7 +54,6 @@ class WorkshopTests(unittest.TestCase):
             "tool",
             "認証アプリを選びQRコードを読み取ります。",
             {"advice": "", "is_completed": completed_on_retry},
-            "QRコードを読み取り設定してください。" if completed_on_retry else "確認できませんでした。",
         ]
 
         def handle(request):
@@ -97,7 +97,7 @@ class WorkshopTests(unittest.TestCase):
         llm = LLM(settings, client=client)
         with patch("src.agent.LLM", return_value=llm):
             result = HelpDeskAgent(settings, tools=LocalSearch().tools()).run_agent("認証アプリの設定手順は？")
-        self.assertEqual(llm.calls, 8)
+        self.assertEqual(llm.calls, 7)
         self.assertEqual(result.subtasks[0].challenge_count, 2)
         self.assertEqual(result.subtasks[0].is_completed, completed_on_retry)
         self.assertEqual(len(result.subtasks[0].tool_results), 2)
@@ -107,6 +107,39 @@ class WorkshopTests(unittest.TestCase):
         self.assertIn("再検索", str(retry))
         if not completed_on_retry:
             self.assertIn("見つかりませんでした", result.subtasks[0].subtask_answer)
+            self.assertIn("根拠を確認できず", result.answer)
+            self.assertNotIn("QRコードを読み取り", result.answer)
+        else:
+            self.assertEqual(result.answer, result.subtasks[0].subtask_answer)
+
+    def test_final_answer_suppresses_unverified_subtask_content(self):
+        steps = AgentSteps(self.settings(), llm=object(), tools=[], prompts=None)
+        state = {
+            "subtask_results": [
+                Subtask(
+                    task_name="認証アプリの設定手順",
+                    tool_results=[],
+                    reflection_results=[],
+                    is_completed=False,
+                    subtask_answer="偽の手順: シークレットキーを入力してください。",
+                    challenge_count=2,
+                ),
+                Subtask(
+                    task_name="二段階認証の有効化",
+                    tool_results=[],
+                    reflection_results=[],
+                    is_completed=True,
+                    subtask_answer="二段階認証を有効にできます [manual.pdf]。",
+                    challenge_count=1,
+                ),
+            ]
+        }
+
+        result = steps.create_answer(state)["last_answer"]
+
+        self.assertIn("根拠を確認できず", result)
+        self.assertNotIn("シークレットキー", result)
+        self.assertIn("二段階認証を有効にできます [manual.pdf]", result)
 
     def test_native_retry_graph(self):
         self.run_flow("native")
