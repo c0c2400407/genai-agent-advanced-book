@@ -39,6 +39,16 @@ Copy-Item .env.lmstudio.example .env
 
 次回からは `start-gui.cmd` のダブルクリックで起動できます。ランチャーは `.venv` → `venv` → `.venv-secure` の順に、必要なPython・ライブラリ・PySide6を使える環境を探します。古いPythonの環境は飛ばします。名前自体を安全性の条件にはしていません。別の名前を使う場合は、その環境のPythonで `-m workshop gui` を実行してください。起動時と「モデル一覧を更新」でLM Studioのモデル一覧を取得します。API URLの標準値は `http://localhost:1234/v1`、ローカルのキー欄は `lm-studio` です。質問実行時に未ロードの選択モデルを自動ロードします。
 
+モデル一覧の取得には、アプリを実行するPythonからLM StudioのローカルAPI `http://127.0.0.1:1234/api/v0/models` へ接続できる必要があります。Codexなどの制限された実行環境・コンテナ・リモート環境では、PC上のLM Studioへの接続を環境側が拒否する場合があります。その場合は設定を変えず、Windowsデスクトップ上の通常のPowerShellまたは `start-gui.cmd` から起動してください。Windows Defender ファイアウォールの許可が表示された場合は、使用中のPython実行ファイルについてプライベートネットワークの通信を許可します。ファイアウォール全体を無効にしないでください。
+
+通信確認は `chapter4` フォルダーで次のコマンドを実行します。
+
+```powershell
+.\.venv\Scripts\python.exe -m workshop models
+```
+
+モデルIDが表示されれば通信できています。GUIの「経過ログ」に `MODEL_LIST_RESPONSE ... http_status=200` と `MODEL_LIST_REQUEST ... status=success count=...` が出ることも確認してください。`PermissionError` または `ConnectError` の場合は、LM StudioのDeveloper画面でローカルサーバーが起動中か、アプリを実行している環境からlocalhostへの通信が許可されているか確認します。
+
 1. 呼び出す言語モデルと検索方式を選ぶ。Embedding方式ならEmbeddingモデルもロードして選ぶ。
 2. 「検索データを準備」を押す。初回のEmbedding生成には時間がかかる。
 3. 接続・機能確認を使う場合は、先に選択モデルをLM Studioでロードする。この確認ボタンは自動ロードしない。
@@ -59,7 +69,7 @@ OpenRouterの公式説明では、無料モデルは現在20リクエスト/分�
 | `py` がない、3.14が見つからない | Python公式インストーラーを確認。Python本体の絶対パスでもvenvを作成できる |
 | 古いPython／OpenSSLで停止 | 古い仮想環境を別名で保管してから、更新したPythonで新規作成する |
 | `No module named PySide6` | `requirements.txt` から依存関係を再インストールする |
-| モデル一覧が空・通信失敗 | LM Studioのサーバー起動とポートを確認し、一覧を更新する |
+| モデル一覧が空・通信失敗 | LM Studioのサーバーを起動し、上記の通信確認を実行する。`PermissionError` / `ConnectError` は制限された実行環境から通常のWindowsデスクトップ起動へ切り替える |
 | 自動ロードがHTTP 404 | LM Studioを0.4.0以降に更新してAPIサーバーを再起動する |
 | 自動ロードがHTTP 401/403 | LM Studio API認証を有効にしている場合は、APIトークンをローカルのキー欄へ入力する |
 | 選んだモデルが一覧にない | LM Studioでモデルをダウンロードし、アプリのモデル一覧を更新する |

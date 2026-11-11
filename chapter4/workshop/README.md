@@ -45,7 +45,11 @@ Set-Location .\chapter4
 
 すでに `chapter4` フォルダーにいる場合は `Set-Location` を省略できます。GUIの起動にはパッケージのエントリーポイント `workshop.__main__` を使います。`workshop\gui.py` や `workshop\__main__.py` をファイルパスで直接実行すると、兄弟フォルダーの `src` がPythonの検索パスに入らず、`ModuleNotFoundError: No module named 'src'` になります。エクスプローラーから起動する場合は `start-gui.cmd` を使ってください。
 
-VS Codeのターミナルなどから起動する場合、PythonプロセスにローカルLM Studio（`127.0.0.1:1234`）とOpenRouter（HTTPS）への通信許可が必要です。通信が遮断される実行環境では、モデル一覧取得が失敗します。
+LM Studioのモデル一覧は、アプリからローカルAPI（`http://127.0.0.1:1234/api/v0/models`）へ接続して取得します。起動時または「モデル一覧を更新」で一覧が空のまま、あるいは通信エラーになる場合は、LM StudioのDeveloper画面でサーバーが起動していることを確認してください。
+
+PythonをCodexなどの制限された実行環境・コンテナ・リモート環境から起動すると、その環境のネットワーク制限でPC上のLM Studio（localhost/127.0.0.1）へ接続できないことがあります。`PermissionError` や `ConnectError` がログに出る場合は、アプリの設定を変える前に、Windowsデスクトップ上の通常のPowerShellまたは `start-gui.cmd` から起動してください。Windows Defender ファイアウォールの許可を求められた場合は、使用中のPython実行ファイルによるプライベートネットワーク上の通信を許可します。ファイアウォール全体を無効にする必要はありません。
+
+原因の切り分けには、`chapter4` フォルダーで `.\.venv\Scripts\python.exe -m workshop models` を実行します。モデルIDが表示されればLM Studioとの通信はできています。GUIの「経過ログ」では `MODEL_LIST_RESPONSE ... http_status=200` と `MODEL_LIST_REQUEST ... status=success count=...` が成功の目印です。HTTP 200なのに候補がない場合は、LM Studioにモデルがダウンロード済みか確認してから更新してください。
 
 ## CLI
 
