@@ -59,6 +59,38 @@ class SecurityTests(unittest.TestCase):
         ):
             require_remote_capabilities(settings)
 
+    def test_openrouter_model_catalogue_uses_api_key_without_logging_it(self):
+        from workshop.checks import fetch_models
+
+        secret = "sk-or-v1-" + "x" * 48
+        settings = Settings(
+            _env_file=None,
+            openai_api_base="https://openrouter.ai/api/v1",
+            openai_model="vendor/test:free",
+            openai_api_key=secret,
+        )
+        requests = []
+
+        def handle(request):
+            requests.append(request)
+            return httpx.Response(200, json={"data": [{"id": settings.openai_model}]})
+
+        client = httpx.Client(transport=httpx.MockTransport(handle))
+        with patch("workshop.checks.http_client", return_value=client), self.assertLogs("workshop.checks", level="INFO") as logs:
+            models = fetch_models(settings.openai_api_base, api_key=settings.openai_api_key)
+
+        self.assertEqual(models[0]["id"], settings.openai_model)
+        self.assertEqual(requests[0].headers["Authorization"], f"Bearer {secret}")
+        self.assertNotIn(secret, "\n".join(logs.output))
+
+    def test_openrouter_model_catalogue_rejects_empty_key_before_request(self):
+        from workshop.checks import fetch_models
+
+        with patch("workshop.checks.http_client") as client:
+            with self.assertRaisesRegex(ValueError, "APIキーを入力"):
+                fetch_models("https://openrouter.ai/api/v1", api_key=Settings(_env_file=None).openai_api_key)
+        client.assert_not_called()
+
     def test_404_guidance_classifies_without_exposing_provider_body(self):
         from src.security import public_error
 

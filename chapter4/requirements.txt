@@ -1,3 +1,4 @@
 --require-hashes
 --only-binary=:all:
+# PySide6 GUIを含む依存関係をハッシュ固定で導入します。
 -r workshop/requirements.lock.txt

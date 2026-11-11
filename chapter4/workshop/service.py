@@ -16,7 +16,7 @@ DEFAULT_QUESTION = "過去のQAを参照して、二段階認証で認証アプ�
 
 def list_models(settings, timeout=10):
     _base, remote = endpoint(settings.openai_api_base)
-    models = fetch_models(settings.openai_api_base, timeout=timeout)
+    models = fetch_models(settings.openai_api_base, timeout=timeout, api_key=settings.openai_api_key)
     if remote:
         return [model for model in models if model["id"].endswith(":free")]
     return [model for model in models if model.get("type") in {"llm", "vlm", "embeddings"}]

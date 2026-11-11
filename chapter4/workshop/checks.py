@@ -4,15 +4,24 @@ import json
 import logging
 
 from src.models import Plan
-from src.security import endpoint, http_client, public_error
+from src.security import endpoint, http_client, public_error, reveal
+
+logger = logging.getLogger(__name__)
 
 
-def fetch_models(base_url, timeout=10, local_only=False):
+def fetch_models(base_url, timeout=10, local_only=False, api_key=None):
     base, remote = endpoint(base_url, local_only=local_only)
     url = base + "/models" if remote else base.removesuffix("/v1") + "/api/v0/models"
+    provider = "OpenRouter" if remote else "LM Studio"
+    key = reveal(api_key)
+    if remote and not key:
+        raise ValueError("OpenRouter APIキーを入力してください")
+    logger.info("MODEL_LIST_REQUEST provider=%s status=started", provider)
     try:
         with http_client(timeout=timeout) as client:
-            response = client.get(url)
+            headers = {"Authorization": f"Bearer {key}"} if remote else None
+            response = client.get(url, headers=headers)
+            logger.info("MODEL_LIST_RESPONSE provider=%s http_status=%d", provider, response.status_code)
             response.raise_for_status()
             models = response.json()["data"]
         if (
@@ -27,8 +36,24 @@ def fetch_models(base_url, timeout=10, local_only=False):
             )
         ):
             raise ValueError("モデル一覧の形式またはサイズが不正です")
+        logger.info("MODEL_LIST_REQUEST provider=%s status=success count=%d", provider, len(models))
         return models
     except Exception as exc:
+        chain = []
+        current = exc
+        seen = set()
+        while current is not None and id(current) not in seen and len(chain) < 5:
+            seen.add(id(current))
+            chain.append(type(current).__name__)
+            current = current.__cause__ or current.__context__
+        response = getattr(exc, "response", None)
+        http_status = getattr(response, "status_code", None)
+        logger.error(
+            "MODEL_LIST_REQUEST provider=%s status=failed exception_chain=%s http_status=%s",
+            provider,
+            ">".join(chain),
+            http_status if http_status is not None else "none",
+        )
         raise RuntimeError(public_error(exc)) from None
 
 
@@ -92,7 +117,12 @@ def require_remote_capabilities(settings, require_native=False):
     if not settings.openai_model.endswith(":free"):
         raise ValueError("OpenRouterでは末尾:freeの固定モデルを選んでください")
     selected = next(
-        (model for model in fetch_models(settings.openai_api_base) if model["id"] == settings.openai_model), None
+        (
+            model
+            for model in fetch_models(settings.openai_api_base, api_key=settings.openai_api_key)
+            if model["id"] == settings.openai_model
+        ),
+        None,
     )
     if selected is None:
         raise ValueError("選択したモデルが公開一覧にありません。モデル一覧を更新して選び直してください。")

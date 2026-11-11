@@ -32,6 +32,19 @@ LM Studioでは起動時と手動更新時にダウンロード済みのモデ�
 
 Embeddingの文書・URL・モデル・プレフィックスを変えたら検索データを作り直します。`.workshop/documents.json` と `embeddings.json` は再生成可能なJSONです。pickleは使いません。資料は書籍付属の3ファイルをSHA256で確認してから解析します。任意のアップロードや外部URLの取得はありません。
 
+## GUIの起動（PowerShell）
+
+コマンドは `chapter4` フォルダーを作業場所にして実行します。リポジトリ直下から開いたPowerShellなら、先に移動してください。
+
+```powershell
+Set-Location .\chapter4
+.\.venv\Scripts\python.exe -m workshop gui
+```
+
+すでに `chapter4` フォルダーにいる場合は `Set-Location` を省略できます。GUIの起動にはパッケージのエントリーポイント `workshop.__main__` を使います。`workshop\gui.py` や `workshop\__main__.py` をファイルパスで直接実行すると、兄弟フォルダーの `src` がPythonの検索パスに入らず、`ModuleNotFoundError: No module named 'src'` になります。エクスプローラーから起動する場合は `start-gui.cmd` を使ってください。
+
+VS Codeのターミナルなどから起動する場合、PythonプロセスにローカルLM Studio（`127.0.0.1:1234`）とOpenRouter（HTTPS）への通信許可が必要です。通信が遮断される実行環境では、モデル一覧取得が失敗します。
+
 ## CLI
 
 ```powershell

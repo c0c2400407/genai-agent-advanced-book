@@ -1,19 +1,41 @@
-"""標準ライブラリのTkinterによる薄い画面。実行はservice.pyへ委譲する。"""
+"""PySide6によるGUI。処理はservice.pyへ委譲する。"""
 
 import json
 import logging
 import queue
+import sys
 import threading
-import tkinter as tk
-from tkinter import messagebox, scrolledtext, ttk
+
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QFont, QKeySequence
+from PySide6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QFormLayout,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMainWindow,
+    QMessageBox,
+    QPlainTextEdit,
+    QPushButton,
+    QSpinBox,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
 from src.configs import Settings
 from src.custom_logger import configure_logging
+from src.security import RedactingFormatter, ensure_runtime, public_error, reveal, validate_question
 from workshop.checks import capability_problem
 from workshop.service import DEFAULT_QUESTION, execute, list_models, prepare_index
-from src.security import reveal, RedactingFormatter, public_error, validate_question, ensure_runtime
 
 SEARCH_LABELS = {"tfidf": "TF-IDF（文字一致）", "lmstudio": "LM Studio Embedding"}
+logger = logging.getLogger(__name__)
 
 
 class QueueLogHandler(logging.Handler):
@@ -27,241 +49,298 @@ class QueueLogHandler(logging.Handler):
         self.events.put(("log", self.format(record)))
 
 
-class App:
-    def __init__(self, root):
-        self.root = root
+class SecretLineEdit(QLineEdit):
+    """Password field with clipboard diagnostics that never log clipboard text."""
+
+    def keyPressEvent(self, event):
+        if event.matches(QKeySequence.StandardKey.Paste):
+            clipboard = QApplication.clipboard()
+            mime_data = clipboard.mimeData()
+            has_text = bool(mime_data and mime_data.hasText())
+            logger.info("API_KEY_PASTE event=received source=qt")
+            super().keyPressEvent(event)
+            if has_text:
+                logger.info("API_KEY_PASTE result=success source=qt")
+            else:
+                logger.warning("API_KEY_PASTE result=failed source=qt reason=clipboard_empty")
+                QApplication.beep()
+            return
+        super().keyPressEvent(event)
+
+
+class App(QMainWindow):
+    def __init__(self):
+        super().__init__()
         self.events = queue.Queue()
         self.busy = False
         self.controls = []
         self.model_catalogues = {"LM Studio": [], "OpenRouter": []}
-        settings = Settings()
-        self.handler = QueueLogHandler(self.events, [settings.openai_api_key, settings.embedding_api_key])
+        self.initial = Settings()
+        self.active_secrets = [self.initial.openai_api_key, self.initial.embedding_api_key]
+        self.handler = QueueLogHandler(self.events, self.active_secrets)
         logging.getLogger().addHandler(self.handler)
-        self.initial = settings
-        root.title("第4章 ヘルプデスクAIエージェント")
-        width = min(1060, root.winfo_screenwidth() - 80)
-        height = min(800, root.winfo_screenheight() - 90)
-        root.geometry(f"{width}x{height}")
-        root.minsize(min(900, width), min(650, height))
-        root.option_add("*Font", ("Yu Gothic UI", 10))
-        root.protocol("WM_DELETE_WINDOW", self.close)
-        frame = ttk.Frame(root, padding=18)
-        frame.pack(fill="both", expand=True)
-        ttk.Label(frame, text="ヘルプデスクAIエージェント", font=("Yu Gothic UI", 21, "bold")).pack(anchor="w")
-        ttk.Label(frame, text="質問の分解 → 検索 → 回答 → 評価・再試行 → 最終回答").pack(anchor="w", pady=(2, 12))
 
-        config = ttk.LabelFrame(frame, text="1  接続先", padding=10)
-        config.pack(fill="x")
-        config.columnconfigure(1, weight=1)
-        config.columnconfigure(3, weight=2)
-        self.provider = tk.StringVar(
-            value="OpenRouter" if "openrouter.ai" in settings.openai_api_base else "LM Studio"
+        self.setWindowTitle("第4章 ヘルプデスクAIエージェント")
+        screen = QApplication.primaryScreen()
+        available = screen.availableGeometry() if screen else None
+        width = min(1060, available.width() - 80) if available else 1060
+        height = min(800, available.height() - 90) if available else 800
+        self.resize(max(900, width), max(650, height))
+        self.setMinimumSize(900, 650)
+        self.setFont(QFont("Yu Gothic UI", 10))
+
+        self._build_ui()
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.poll)
+        self.timer.start(100)
+        logger.info("APP_READY provider=%s gui=PySide6", self.provider_combo.currentText())
+        QTimer.singleShot(200, self.startup_models)
+
+    def _build_ui(self):
+        central = QWidget(self)
+        self.setCentralWidget(central)
+        outer = QVBoxLayout(central)
+        outer.setContentsMargins(18, 18, 18, 12)
+
+        title = QLabel("ヘルプデスクAIエージェント")
+        title.setStyleSheet("font-size: 21pt; font-weight: bold;")
+        outer.addWidget(title)
+        outer.addWidget(QLabel("質問の分解 → 検索 → 回答 → 評価・再試行 → 最終回答"))
+
+        config = QGroupBox("1  接続先")
+        grid = QGridLayout(config)
+        grid.setColumnStretch(1, 1)
+        grid.setColumnStretch(3, 2)
+        settings = self.initial
+        self.provider_combo = QComboBox()
+        self.provider_combo.addItems(["LM Studio", "OpenRouter"])
+        self.provider_combo.setCurrentText(
+            "OpenRouter" if "openrouter.ai" in settings.openai_api_base else "LM Studio"
         )
-        self.base_url = tk.StringVar(value=settings.openai_api_base)
-        self.model = tk.StringVar(value=settings.openai_model)
-        self.api_key = tk.StringVar(value=reveal(settings.openai_api_key))
-        self.log_consent = tk.BooleanVar(value=settings.save_full_logs)
-        self.tool_mode = tk.StringVar(value=settings.tool_mode)
-        self.structured_mode = tk.StringVar(value=settings.structured_mode)
-        self.subtasks = tk.StringVar(value=str(settings.max_subtasks))
-        self.output_tokens = tk.StringVar(value=str(settings.max_output_tokens))
-        self.search_backend = tk.StringVar(value=SEARCH_LABELS[settings.search_backend])
-        self.embedding_model = tk.StringVar(value=settings.embedding_model)
-        self.embedding_url = tk.StringVar(value=settings.embedding_base_url)
-        ttk.Label(config, text="接続先").grid(row=0, column=0, sticky="w", padx=(0, 8))
-        provider = ttk.Combobox(
-            config, textvariable=self.provider, values=["LM Studio", "OpenRouter"], state="readonly", width=15
+        self.model_box = QComboBox()
+        self.model_box.setEditable(True)
+        self.model_box.setCurrentText(settings.openai_model)
+        self.base_url_entry = QLineEdit(settings.openai_api_base)
+        self.api_key_entry = SecretLineEdit()
+        self.api_key_entry.setEchoMode(QLineEdit.EchoMode.Password)
+        self.api_key_entry.setText(reveal(settings.openai_api_key))
+        self.api_key_entry.setPlaceholderText("OpenRouter APIキー")
+
+        grid.addWidget(QLabel("接続先"), 0, 0)
+        grid.addWidget(self.provider_combo, 0, 1)
+        grid.addWidget(QLabel("呼び出すモデル"), 0, 2)
+        grid.addWidget(self.model_box, 0, 3)
+        grid.addWidget(QLabel("API URL"), 1, 0)
+        grid.addWidget(self.base_url_entry, 1, 1, 1, 3)
+        grid.addWidget(QLabel("APIキー"), 2, 0)
+        grid.addWidget(self.api_key_entry, 2, 1, 1, 3)
+        grid.addWidget(
+            QLabel("キーは画面内で使用します。画面の入力内容は設定ファイルに保存しません。"), 3, 0, 1, 4
         )
-        provider.grid(row=0, column=1, sticky="ew", padx=(0, 14))
-        provider.bind("<<ComboboxSelected>>", self.change_provider)
-        ttk.Label(config, text="呼び出すモデル").grid(row=0, column=2, sticky="w", padx=(0, 8))
-        self.model_box = ttk.Combobox(config, textvariable=self.model)
-        self.model_box.grid(row=0, column=3, sticky="ew")
-        self.model_box.bind("<<ComboboxSelected>>", self.update_model_status)
-        self.controls.extend([(provider, "readonly"), (self.model_box, "normal")])
-        for row, label, variable, masked in [(1, "API URL", self.base_url, False), (2, "APIキー", self.api_key, True)]:
-            ttk.Label(config, text=label).grid(row=row, column=0, sticky="w", pady=5)
-            entry = ttk.Entry(config, textvariable=variable, show="●" if masked else "")
-            entry.grid(row=row, column=1, columnspan=3, sticky="ew", pady=5)
-            self.controls.append((entry, "normal"))
-        ttk.Label(config, text="キーは画面内で使用します。画面の入力内容は設定ファイルに保存しません。").grid(
-            row=3, column=0, columnspan=4, sticky="w"
+        self.context_label = QLabel("LM StudioのContext Lengthは、LM StudioのGUIで設定して再ロードします。")
+        self.context_label.setWordWrap(True)
+        grid.addWidget(self.context_label, 4, 0, 1, 4)
+
+        self.search_backend_combo = QComboBox()
+        self.search_backend_combo.addItems(list(SEARCH_LABELS.values()))
+        self.search_backend_combo.setCurrentText(SEARCH_LABELS[settings.search_backend])
+        self.embedding_box = QComboBox()
+        self.embedding_box.setEditable(True)
+        self.embedding_box.setCurrentText(settings.embedding_model)
+        self.embedding_url_entry = QLineEdit(settings.embedding_base_url)
+        grid.addWidget(QLabel("検索方式"), 5, 0)
+        grid.addWidget(self.search_backend_combo, 5, 1)
+        grid.addWidget(QLabel("Embeddingモデル"), 5, 2)
+        grid.addWidget(self.embedding_box, 5, 3)
+        grid.addWidget(QLabel("Embedding URL"), 6, 0)
+        grid.addWidget(self.embedding_url_entry, 6, 1, 1, 3)
+
+        config_buttons = QHBoxLayout()
+        self.models_button = QPushButton("モデル一覧を更新")
+        self.preflight_button = QPushButton("接続・機能確認（3リクエスト）")
+        self.index_button = QPushButton("検索データを準備")
+        for button in (self.models_button, self.preflight_button, self.index_button):
+            config_buttons.addWidget(button)
+            self.controls.append(button)
+        config_buttons.addStretch(1)
+        grid.addLayout(config_buttons, 7, 0, 1, 4)
+        outer.addWidget(config)
+
+        question_group = QGroupBox("2  質問")
+        question_layout = QVBoxLayout(question_group)
+        self.question = QPlainTextEdit()
+        self.question.setMaximumHeight(100)
+        self.question.setPlainText(DEFAULT_QUESTION)
+        question_layout.addWidget(self.question)
+        options = QHBoxLayout()
+        self.tool_mode_combo = QComboBox()
+        self.tool_mode_combo.addItems(["native", "json"])
+        self.tool_mode_combo.setCurrentText(settings.tool_mode)
+        self.structured_mode_combo = QComboBox()
+        self.structured_mode_combo.addItems(["schema", "json"])
+        self.structured_mode_combo.setCurrentText(settings.structured_mode)
+        self.subtasks_spin = QSpinBox()
+        self.subtasks_spin.setRange(1, 2)
+        self.subtasks_spin.setValue(settings.max_subtasks)
+        self.output_tokens_spin = QSpinBox()
+        self.output_tokens_spin.setRange(128, 8192)
+        self.output_tokens_spin.setValue(settings.max_output_tokens)
+        self.save_logs_check = QCheckBox(
+            "質問・回答・検索結果をファイルに保存する（共有する前に内容を確認してください）"
         )
-        self.context = tk.StringVar(value="LM StudioのContext Lengthは、LM StudioのGUIで設定して再ロードします。")
-        ttk.Label(config, textvariable=self.context, wraplength=950).grid(
-            row=4, column=0, columnspan=4, sticky="w", pady=(6, 2)
-        )
-        ttk.Label(config, text="検索方式").grid(row=5, column=0, sticky="w", pady=5)
-        backend_box = ttk.Combobox(
-            config, textvariable=self.search_backend, values=list(SEARCH_LABELS.values()), state="readonly"
-        )
-        backend_box.grid(row=5, column=1, sticky="ew", padx=(0, 14))
-        backend_box.bind("<<ComboboxSelected>>", self.update_search_state)
-        ttk.Label(config, text="Embeddingモデル").grid(row=5, column=2, sticky="w", padx=(0, 8))
-        self.embedding_box = ttk.Combobox(config, textvariable=self.embedding_model)
-        self.embedding_box.grid(row=5, column=3, sticky="ew")
-        ttk.Label(config, text="Embedding URL").grid(row=6, column=0, sticky="w", pady=5)
-        self.embedding_url_entry = ttk.Entry(config, textvariable=self.embedding_url)
-        self.embedding_url_entry.grid(row=6, column=1, columnspan=3, sticky="ew")
-        self.controls.extend(
-            [(backend_box, "readonly"), (self.embedding_box, "normal"), (self.embedding_url_entry, "normal")]
-        )
+        self.save_logs_check.setChecked(settings.save_full_logs)
+        self.run_button = QPushButton("質問を実行")
+
+        for label, widget in (
+            ("ツール", self.tool_mode_combo),
+            ("構造化出力", self.structured_mode_combo),
+            ("サブタスク上限", self.subtasks_spin),
+            ("出力上限", self.output_tokens_spin),
+        ):
+            options.addWidget(QLabel(label))
+            options.addWidget(widget)
+            self.controls.append(widget)
+        options.addStretch(1)
+        options.addWidget(self.run_button)
+        question_layout.addLayout(options)
+        question_layout.addWidget(self.save_logs_check)
+        self.controls.extend([self.run_button, self.save_logs_check])
+        outer.addWidget(question_group)
+
+        self.tabs = QTabWidget()
+        self.answer = self._new_tab("回答")
+        self.details = self._new_tab("検索・評価の詳細")
+        self.logs = self._new_tab("経過ログ")
+        outer.addWidget(self.tabs, 1)
+        self.status_label = QLabel("準備完了。初回は検索データの準備と接続・機能確認を実行してください。")
+        self.status_label.setWordWrap(True)
+        outer.addWidget(self.status_label)
+
+        for widget in (self.provider_combo, self.model_box, self.base_url_entry, self.api_key_entry,
+                       self.search_backend_combo, self.embedding_box, self.embedding_url_entry):
+            self.controls.append(widget)
+
+        self.provider_combo.currentTextChanged.connect(self.change_provider)
+        self.model_box.currentTextChanged.connect(self.update_model_status)
+        self.search_backend_combo.currentTextChanged.connect(self.update_search_state)
+        self.tool_mode_combo.currentTextChanged.connect(self.update_model_status)
+        self.structured_mode_combo.currentTextChanged.connect(self.update_model_status)
+        self.models_button.clicked.connect(self.get_models)
+        self.preflight_button.clicked.connect(lambda: self.run("preflight"))
+        self.index_button.clicked.connect(self.index)
+        self.run_button.clicked.connect(lambda: self.run("run"))
         self.update_search_state()
-        buttons = ttk.Frame(config)
-        buttons.grid(row=7, column=0, columnspan=4, sticky="w", pady=(6, 0))
-        for label, command in [
-            ("モデル一覧を更新", self.get_models),
-            ("接続・機能確認（3リクエスト）", lambda: self.run("preflight")),
-            ("検索データを準備", self.index),
-        ]:
-            button = ttk.Button(buttons, text=label, command=command)
-            button.pack(side="left", padx=(0, 8))
-            self.controls.append((button, "normal"))
+        logger.info("PROVIDER_CHANGED provider=%s api_key_present=%s", self.provider_combo.currentText(), bool(self.api_key_entry.text()))
 
-        question_frame = ttk.LabelFrame(frame, text="2  質問", padding=10)
-        question_frame.pack(fill="x", pady=12)
-        self.question = scrolledtext.ScrolledText(question_frame, height=3, wrap="word", font=("Yu Gothic UI", 11))
-        self.question.pack(fill="x")
-        self.question.insert("1.0", DEFAULT_QUESTION)
-        options = ttk.Frame(question_frame)
-        options.pack(fill="x", pady=(10, 0))
-        for label, variable, values in [
-            ("ツール", self.tool_mode, ["native", "json"]),
-            ("構造化出力", self.structured_mode, ["schema", "json"]),
-        ]:
-            ttk.Label(options, text=label).pack(side="left", padx=(0, 5))
-            widget = ttk.Combobox(options, textvariable=variable, values=values, state="readonly", width=8)
-            widget.bind("<<ComboboxSelected>>", self.update_model_status)
-            widget.pack(side="left", padx=(0, 14))
-            self.controls.append((widget, "readonly"))
-        for label, variable, minimum, maximum, width in [
-            ("サブタスク上限", self.subtasks, 1, 2, 3),
-            ("出力上限", self.output_tokens, 128, 8192, 6),
-        ]:
-            ttk.Label(options, text=label).pack(side="left", padx=(0, 5))
-            widget = ttk.Spinbox(options, textvariable=variable, from_=minimum, to=maximum, width=width)
-            widget.pack(side="left", padx=(0, 14))
-            self.controls.append((widget, "normal"))
-        button = ttk.Button(options, text="質問を実行", command=lambda: self.run("run"))
-        button.pack(side="right")
-        self.controls.append((button, "normal"))
-
-        consent = ttk.Checkbutton(
-            question_frame,
-            text="質問・回答・検索結果をファイルに保存する（共有する前に内容を確認してください）",
-            variable=self.log_consent,
-        )
-        consent.pack(anchor="w", pady=(6, 0))
-        self.controls.append((consent, "normal"))
-
-        notebook = ttk.Notebook(frame)
-        notebook.pack(fill="both", expand=True)
-        self.answer = self.tab(notebook, "回答")
-        self.details = self.tab(notebook, "検索・評価の詳細")
-        self.logs = self.tab(notebook, "経過ログ")
-        self.status = tk.StringVar(value="準備完了。初回は検索データの準備と接続・機能確認を実行してください。")
-        ttk.Label(frame, textvariable=self.status, wraplength=1000).pack(
-            side="bottom", fill="x", pady=(10, 0), before=notebook
-        )
-        root.after(100, self.poll)
-        root.after(200, self.startup_models)
-
-    def tab(self, notebook, name):
-        widget = scrolledtext.ScrolledText(notebook, wrap="word", state="disabled", font=("Yu Gothic UI", 10))
-        notebook.add(widget, text=name)
+    def _new_tab(self, label):
+        widget = QPlainTextEdit()
+        widget.setReadOnly(True)
+        self.tabs.addTab(widget, label)
         return widget
 
-    def put(self, widget, text, append=False):
-        widget.configure(state="normal")
-        if not append:
-            widget.delete("1.0", "end")
-        widget.insert("end", text)
-        widget.see("end")
-        widget.configure(state="disabled")
+    @staticmethod
+    def put(widget, text, append=False):
+        if append:
+            widget.appendPlainText(text.rstrip("\n"))
+        else:
+            widget.setPlainText(text)
+        cursor = widget.textCursor()
+        cursor.movePosition(cursor.MoveOperation.End)
+        widget.setTextCursor(cursor)
 
-    def change_provider(self, _event=None):
-        local = self.provider.get() == "LM Studio"
-        self.base_url.set("http://localhost:1234/v1" if local else "https://openrouter.ai/api/v1")
-        self.model.set("" if local else "liquid/lfm-2.5-2.6b:free")
-        cached = self.model_catalogues[self.provider.get()]
+    def change_provider(self, provider=None):
+        provider = provider or self.provider_combo.currentText()
+        local = provider == "LM Studio"
+        self.base_url_entry.setText("http://localhost:1234/v1" if local else "https://openrouter.ai/api/v1")
+        self.model_box.setCurrentText("" if local else "liquid/lfm-2.5-2.6b:free")
+        cached = self.model_catalogues[provider]
         chat_models = [m for m in cached if m.get("type", "llm") != "embeddings"]
         loaded = [m for m in chat_models if m.get("state") == "loaded"]
-        self.model_box.configure(values=[model["id"] for model in chat_models])
+        self.model_box.clear()
+        self.model_box.addItems([model["id"] for model in chat_models])
         if local and len(loaded) == 1:
-            self.model.set(loaded[0]["id"])
-        self.api_key.set("lm-studio" if local else "")
-        self.context.set(
+            self.model_box.setCurrentText(loaded[0]["id"])
+        elif not local:
+            self.model_box.setCurrentText("liquid/lfm-2.5-2.6b:free")
+        self.api_key_entry.setText("lm-studio" if local else "")
+        logger.info("PROVIDER_CHANGED provider=%s api_key_present=%s", provider, bool(self.api_key_entry.text()))
+        self.context_label.setText(
             "LM StudioのGUIで使用する1モデルをロードし、「モデル一覧を更新」を押してください。"
             if local
             else "固定の無料モデルIDを選択してください。候補の実APIでの最終確認は必要です。"
         )
         self.update_model_status()
 
-    def update_model_status(self, _event=None):
-        if self.provider.get() != "LM Studio":
-            selected = next((m for m in self.model_catalogues["OpenRouter"] if m["id"] == self.model.get()), None)
+    def update_model_status(self, *_args):
+        if self.provider_combo.currentText() != "LM Studio":
+            selected = next(
+                (m for m in self.model_catalogues["OpenRouter"] if m["id"] == self.model_box.currentText()), None
+            )
             if selected:
                 parameters = selected.get("supported_parameters") or []
                 if not isinstance(parameters, list) or not all(isinstance(item, str) for item in parameters):
                     parameters = []
                 tools = "対応" if {"tools", "tool_choice"}.issubset(parameters) else "未確認"
                 schema = "対応" if {"response_format", "structured_outputs"}.issubset(parameters) else "未確認"
-                problem = capability_problem(selected, self.tool_mode.get(), self.structured_mode.get())
-                self.context.set(
+                problem = capability_problem(selected, self.tool_mode_combo.currentText(), self.structured_mode_combo.currentText())
+                self.context_label.setText(
                     f"公開情報: ツール {tools} / schema {schema}。{problem or '現在の設定に対応。配信状況やアカウント制限は実接続で確認します。'}"
                 )
             else:
-                self.context.set("対応機能は未確認です。「モデル一覧を更新」で確認してください。")
+                self.context_label.setText("対応機能は未確認です。「モデル一覧を更新」で確認してください。")
             return
-        selected = next((m for m in self.model_catalogues["LM Studio"] if m["id"] == self.model.get()), None)
+        selected = next((m for m in self.model_catalogues["LM Studio"] if m["id"] == self.model_box.currentText()), None)
         if selected:
-            state = (
-                "ロード済み" if selected.get("state") == "loaded" else "未ロード（LM StudioのGUIで切り替えてください）"
-            )
-            self.context.set(
+            state = "ロード済み" if selected.get("state") == "loaded" else "未ロード（LM StudioのGUIで切り替えてください）"
+            self.context_label.setText(
                 f"モデル状態: {state} / Context Length: {selected.get('loaded_context_length') or '未設定'} tokens"
             )
 
-    def update_search_state(self, _event=None):
-        state = "normal" if self.search_backend.get() == SEARCH_LABELS["lmstudio"] else "disabled"
-        self.embedding_box.configure(state=state)
-        self.embedding_url_entry.configure(state=state)
+    def update_search_state(self, *_args):
+        enabled = self.search_backend_combo.currentText() == SEARCH_LABELS["lmstudio"]
+        self.embedding_box.setEnabled(enabled and not self.busy)
+        self.embedding_url_entry.setEnabled(enabled and not self.busy)
 
     def settings(self):
+        api_key = self.api_key_entry.text().strip()
+        logger.info("API_KEY_STATE provider=%s present=%s", self.provider_combo.currentText(), bool(api_key))
         values = self.initial.model_dump()
         values.update(
-            openai_api_base=self.base_url.get().strip(),
-            openai_model=self.model.get().strip(),
-            openai_api_key=self.api_key.get().strip(),
-            tool_mode=self.tool_mode.get(),
-            structured_mode=self.structured_mode.get(),
-            max_subtasks=int(self.subtasks.get()),
-            max_output_tokens=int(self.output_tokens.get()),
-            search_backend="lmstudio" if self.search_backend.get() == SEARCH_LABELS["lmstudio"] else "tfidf",
-            embedding_model=self.embedding_model.get().strip(),
-            embedding_base_url=self.embedding_url.get().strip(),
-            save_full_logs=bool(self.log_consent.get()),
-            reasoning_effort="none" if self.provider.get() == "LM Studio" else None,
+            openai_api_base=self.base_url_entry.text().strip(),
+            openai_model=self.model_box.currentText().strip(),
+            openai_api_key=api_key,
+            tool_mode=self.tool_mode_combo.currentText(),
+            structured_mode=self.structured_mode_combo.currentText(),
+            max_subtasks=self.subtasks_spin.value(),
+            max_output_tokens=self.output_tokens_spin.value(),
+            search_backend="lmstudio" if self.search_backend_combo.currentText() == SEARCH_LABELS["lmstudio"] else "tfidf",
+            embedding_model=self.embedding_box.currentText().strip(),
+            embedding_base_url=self.embedding_url_entry.text().strip(),
+            save_full_logs=self.save_logs_check.isChecked(),
+            reasoning_effort="none" if self.provider_combo.currentText() == "LM Studio" else None,
         )
         result = Settings(_env_file=None, **values)
         self.handler.formatter.secrets = [result.openai_api_key, result.embedding_api_key]
+        self.active_secrets = [result.openai_api_key, result.embedding_api_key]
         return result
 
-    def start(self, work, message="実行中…同じモデルを1件ずつ呼び出しています。"):
+    def start(self, work, message="実行中…同じモデルを1件ずつ呼び出しています。", secrets=None):
         if self.busy:
             return
         self.busy = True
-        self.status.set(message)
-        self.put(self.logs, "")
-        for widget, _state in self.controls:
-            widget.configure(state="disabled")
-        self.question.configure(state="disabled")
+        logger.info("UI_TASK status=started controls=disabled")
+        self.status_label.setText(message)
+        for widget in self.controls:
+            widget.setEnabled(False)
+        self.question.setEnabled(False)
+        active_secrets = list(secrets or self.active_secrets)
 
         def worker():
             try:
                 self.events.put(("done", work()))
             except Exception as exc:
-                self.events.put(("error", public_error(exc, [self.api_key.get(), self.initial.embedding_api_key])))
+                logger.error("UI_TASK status=failed error_type=%s", type(exc).__name__)
+                self.events.put(("error", public_error(exc, active_secrets)))
 
         self.worker = threading.Thread(target=worker, daemon=True)
         self.worker.start()
@@ -269,24 +348,28 @@ class App:
     def run(self, command):
         try:
             settings = self.settings()
-            question = self.question.get("1.0", "end").strip()
+            question = self.question.toPlainText().strip()
             if command == "run":
                 validate_question(question)
         except Exception as exc:
-            messagebox.showerror("設定の確認", public_error(exc, [self.api_key.get()]))
+            QMessageBox.critical(self, "設定の確認", public_error(exc, [self.api_key_entry.text()]))
             return
         self.put(self.answer, "実行中…")
         self.put(self.details, "")
-        self.start(lambda: ("execution", execute(settings, command, question)))
+        self.start(lambda: ("execution", execute(settings, command, question)), secrets=[settings.openai_api_key, settings.embedding_api_key])
 
     def get_models(self):
         try:
             settings = self.settings()
         except Exception as exc:
-            messagebox.showerror("設定の確認", str(exc))
+            QMessageBox.critical(self, "設定の確認", public_error(exc, [self.api_key_entry.text()]))
             return
-        provider = self.provider.get()
-        self.start(lambda: ("models", {"provider": provider, "items": list_models(settings)}), "モデル一覧を取得中…")
+        provider = self.provider_combo.currentText()
+        self.start(
+            lambda: ("models", {"provider": provider, "items": list_models(settings)}),
+            "モデル一覧を取得中…",
+            secrets=[settings.openai_api_key, settings.embedding_api_key],
+        )
 
     def startup_models(self):
         if self.busy:
@@ -294,27 +377,32 @@ class App:
         settings = self.initial.model_copy(
             update={
                 "openai_api_base": self.initial.openai_api_base
-                if self.provider.get() == "LM Studio"
+                if self.provider_combo.currentText() == "LM Studio"
                 else "http://localhost:1234/v1",
             }
         )
 
         def fetch():
             try:
-                return "models", {"provider": "LM Studio", "items": list_models(settings, timeout=3)}
-            except Exception:
+                items = list_models(settings, timeout=3)
+                logger.info("STARTUP_MODEL_CHECK result=success count=%d", len(items))
+                return "models", {"provider": "LM Studio", "items": items}
+            except Exception as exc:
+                logger.warning("STARTUP_MODEL_CHECK result=failed error_type=%s", type(exc).__name__)
                 return "startup_unavailable", None
 
-        self.start(fetch, "起動時にLM Studioのモデル一覧を確認中…")
+        self.start(fetch, "起動時にLM Studioのモデル一覧を確認中…", secrets=[settings.openai_api_key])
 
     def index(self):
         try:
             settings = self.settings()
         except Exception as exc:
-            messagebox.showerror("設定の確認", str(exc))
+            QMessageBox.critical(self, "設定の確認", public_error(exc, [self.api_key_entry.text()]))
             return
         self.start(
-            lambda: ("index", prepare_index(settings)), "検索データを準備中…Embedding使用時は文書をベクトル化します。"
+            lambda: ("index", prepare_index(settings)),
+            "検索データを準備中…Embedding使用時は文書をベクトル化します。",
+            secrets=[settings.openai_api_key, settings.embedding_api_key],
         )
 
     def poll(self):
@@ -325,17 +413,18 @@ class App:
                     self.put(self.logs, value + "\n", append=True)
                     continue
                 self.busy = False
-                for widget, state in self.controls:
-                    widget.configure(state=state)
-                self.question.configure(state="normal")
+                logger.info("UI_TASK status=%s controls=enabled", "finished" if event == "done" else "failed")
+                for widget in self.controls:
+                    widget.setEnabled(True)
+                self.question.setEnabled(True)
                 self.update_search_state()
                 if event == "error":
-                    self.status.set("停止しました。設定と経過ログを確認してください。")
+                    self.status_label.setText("停止しました。設定と経過ログを確認してください。")
                     self.put(self.answer, value)
                     continue
                 kind, result = value
                 if kind == "startup_unavailable":
-                    self.status.set("準備完了。LM Studio起動後は「モデル一覧を更新」で取得できます。")
+                    self.status_label.setText("準備完了。LM Studio起動後は「モデル一覧を更新」で取得できます。")
                     continue
                 if kind == "execution":
                     data, path = result
@@ -347,11 +436,11 @@ class App:
                         ),
                     )
                     self.put(self.details, json.dumps(data, ensure_ascii=False, indent=2))
-                    self.status.set(
+                    self.status_label.setText(
                         f"{data['status']} / API {data['api_calls']}回 / {data['elapsed_seconds']}秒 / 保存先: {path}"
                     )
                     if data.get("local_model"):
-                        self.context.set(
+                        self.context_label.setText(
                             f"現在のロード済みContext Length: {data['local_model']['loaded_context_length']} tokens。変更はLM StudioのGUIで行います。"
                         )
                 elif kind == "models":
@@ -360,42 +449,44 @@ class App:
                     chat_models = [m for m in items if m.get("type", "llm") != "embeddings"]
                     if provider == "LM Studio":
                         embedding_models = [m for m in items if m.get("type") == "embeddings"]
-                        self.embedding_box.configure(values=[m["id"] for m in embedding_models])
-                    if self.provider.get() == provider:
-                        self.model_box.configure(values=[m["id"] for m in chat_models])
+                        self.embedding_box.clear()
+                        self.embedding_box.addItems([m["id"] for m in embedding_models])
+                    if self.provider_combo.currentText() == provider:
+                        current_model = self.model_box.currentText()
+                        self.model_box.clear()
+                        self.model_box.addItems([m["id"] for m in chat_models])
                         loaded = [m for m in chat_models if m.get("state") == "loaded"]
-                        if (
-                            provider == "LM Studio"
-                            and len(loaded) == 1
-                            and not any(m["id"] == self.model.get() for m in chat_models)
+                        if provider == "LM Studio" and len(loaded) == 1 and not any(
+                            m["id"] == current_model for m in chat_models
                         ):
-                            self.model.set(loaded[0]["id"])
+                            current_model = loaded[0]["id"]
+                        self.model_box.setCurrentText(current_model)
                         self.update_model_status()
-                        self.status.set(
-                            f"言語モデルを{len(chat_models)}件取得しました。未ロードのものはLM Studio側で切り替えてください。"
-                        )
+                        self.status_label.setText(f"言語モデルを{len(chat_models)}件取得しました。未ロードのものはLM Studio側で切り替えてください。")
                     else:
-                        self.status.set(
+                        self.status_label.setText(
                             "LM Studioのモデル一覧を取得しました。接続先をLM Studioに切り替えると選択できます。"
                         )
                 else:
-                    self.status.set(f"検索データを準備しました: {result}")
+                    self.status_label.setText(f"検索データを準備しました: {result}")
         except queue.Empty:
             pass
-        self.root.after(100, self.poll)
 
-    def close(self):
+    def closeEvent(self, event):
         if self.busy:
-            messagebox.showinfo("実行中", "処理の完了を待ってから閉じてください。")
+            QMessageBox.information(self, "実行中", "処理の完了を待ってから閉じてください。")
+            event.ignore()
             return
         logging.getLogger().removeHandler(self.handler)
         self.handler.close()
-        self.root.destroy()
+        event.accept()
 
 
 def launch():
     ensure_runtime()
     configure_logging()
-    root = tk.Tk()
-    App(root)
-    root.mainloop()
+    app = QApplication.instance() or QApplication(sys.argv)
+    app.setApplicationName("第4章 ヘルプデスクAIエージェント")
+    window = App()
+    window.show()
+    app.exec()

@@ -14,6 +14,7 @@ dependencies = [
     "pydantic-settings==2.16.2",
     "pypdf==6.21.4",
     "httpx==0.28.1",
+    "pyside6==6.11.2",
 ]
 
 [tool.ruff]
@@ -49,6 +50,10 @@ constraint-dependencies = [
     "ormsgpack==1.13.0",
     "packaging==26.3",
     "pip==26.2.2",
+    "pyside6==6.11.2",
+    "pyside6-addons==6.11.2",
+    "pyside6-essentials==6.11.2",
+    "shiboken6==6.11.2",
     "pydantic==2.14.1",
     "pydantic-settings==2.16.2",
     "pydantic_core==2.50.1",

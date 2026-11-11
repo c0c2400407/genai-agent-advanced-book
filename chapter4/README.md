@@ -2,16 +2,19 @@
 
 2026-10-29版。LM StudioとOpenRouterに対応したWindows向けGUI／CLIです。「質問の分解 → 検索 → 回答 → 評価・再試行 → 最終回答」を確認できます。
 
-**最初は [Windows導入ガイド](workshop/INSTALL_WINDOWS.md) の手順で準備してください。** Python 3.14.10以上の3.14系（Tcl/Tkを含む、OpenSSL 3.5.9以上）が必要です。古いPythonで作った環境を流用せず、仮想環境を新しく作ります。Dockerは今回使いません。
+**最初は [Windows導入ガイド](workshop/INSTALL_WINDOWS.md) の手順で準備してください。** Python 3.14.10以上の3.14系（OpenSSL 3.5.9以上）が必要です。GUIはPySide6を使います。古いPythonで作った環境を流用せず、仮想環境を新しく作ります。Dockerは今回使いません。
 
 ```powershell
-# ZIPを展開し、chapter4フォルダーで実行
+# リポジトリ直下から実行する場合（すでにchapter4にいる場合は不要）
+Set-Location .\chapter4
 py -3.14 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe -m pip check
 Copy-Item .env.lmstudio.example .env
 .\.venv\Scripts\python.exe -m workshop gui
 ```
+
+GUIは `chapter4` フォルダーを作業場所にして `python -m workshop gui` で起動します。`workshop\gui.py` や `workshop\__main__.py` をファイルとして直接実行すると、兄弟フォルダーの `src` を読み込めず起動しません。エクスプローラーからは `start-gui.cmd` をダブルクリックしてください。
 
 GUI起動後は呼び出す言語モデルと検索方式を選び、「検索データを準備」「接続・機能確認」「質問を実行」の順に操作します。LM Studio側で言語モデルを1つだけロードしてください。Embedding検索を使う場合は、別途Embeddingモデルを1つロードして選択します。アプリはモデルの自動ロードを行いません。コンテキスト長はLM StudioのGUIで設定します。
 
